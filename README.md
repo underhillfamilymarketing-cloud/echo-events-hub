@@ -1,33 +1,32 @@
-# Welcome to your Lovable project
+# ECHO Events Hub
 
-This project was built with [Lovable](https://lovable.dev).
+Standalone ECHO Marketing events calendar.
 
-## Build with Lovable
+## What It Does
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- Shows a shared calendar of ECHO events.
+- Stores events in Supabase.
+- Mirrors event changes to a Google Sheets sync webhook when configured.
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+pnpm install
+pnpm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
 
 ## Deployment
 
-The Sites deployment archive flattens built public assets to the deployment root so `/assets/*` URLs resolve in production.
+The production build is deployed with Sites. The deployment archive flattens built public assets to the deployment root so `/assets/*` URLs resolve in production.
+
+Required runtime variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Optional runtime variables:
+
+- `EVENTS_SHEETS_WEBHOOK_URL`
+- `EVENTS_SHEETS_WEBHOOK_TOKEN`

@@ -13,7 +13,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import logoAsset from "@/assets/echo-logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchEventsInRange, fetchUpcomingEvents, searchEvents, type EventRow } from "@/lib/events";
 import { PROJECTS, getProject } from "@/lib/projects";
@@ -182,7 +181,7 @@ function EchoEvents() {
         {/* Desktop sidebar */}
         <aside className="hidden w-80 shrink-0 flex-col gap-4 lg:flex">
           <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
-            <img src={logoAsset.url} alt="ECHO Marketing" className="h-9 w-auto" />
+            <BrandLockup size="desktop" />
             <p className="mt-3 text-sm text-muted-foreground">
               Спільний календар подій агенції. Зміни бачать усі, миттєво.
             </p>
@@ -219,7 +218,7 @@ function EchoEvents() {
         <main className="min-w-0 flex-1 pb-32 lg:pb-0">
           <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 px-4 pt-safe backdrop-blur-xl lg:static lg:rounded-2xl lg:border lg:bg-card lg:px-5 lg:shadow-soft">
             <div className="flex items-center justify-between gap-3 py-3">
-              <img src={logoAsset.url} alt="ECHO Marketing" className="h-7 w-auto lg:hidden" />
+              <BrandLockup size="mobile" className="lg:hidden" />
               <div className="hidden lg:block">
                 <h1 className="font-display text-xl font-bold">
                   <span className="gradient-text">ECHO</span> Events
@@ -536,6 +535,32 @@ function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
       {text}
+    </div>
+  );
+}
+
+function BrandLockup({
+  size,
+  className,
+}: {
+  size: "desktop" | "mobile";
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-2.5", className)} aria-label="ECHO Marketing">
+      <img
+        src="/icon-192.png"
+        alt=""
+        className={cn("rounded-xl", size === "desktop" ? "size-9" : "size-7")}
+      />
+      <div className="leading-none">
+        <div className={cn("font-display font-bold", size === "desktop" ? "text-lg" : "text-base")}>
+          <span className="gradient-text">ECHO</span>
+        </div>
+        <div className="text-[0.62rem] font-semibold uppercase text-muted-foreground">
+          Events
+        </div>
+      </div>
     </div>
   );
 }
