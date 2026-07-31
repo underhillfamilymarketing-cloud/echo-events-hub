@@ -6,6 +6,7 @@ import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   ssr: {
+    target: "webworker",
     noExternal: true,
   },
   plugins: [
