@@ -9,6 +9,8 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     history: typeof window === "undefined" ? createMemoryHistory() : undefined,
+    origin:
+      typeof window === "undefined" ? "https://events.echomarketing.agency" : undefined,
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
   });
