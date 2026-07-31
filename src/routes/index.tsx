@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,6 +7,8 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
+  LockKeyhole,
+  LogOut,
   Plus,
   Search,
   SlidersHorizontal,
@@ -54,11 +56,18 @@ export const Route = createFileRoute("/")({
 
 type Tab = "calendar" | "search" | "upcoming";
 
+const ACCESS_PASSWORD = "1234";
+const ACCESS_STORAGE_KEY = "echo-events-access";
+
 function EchoEvents() {
   const qc = useQueryClient();
   const today = todayISO();
   const now = new Date();
 
+  const [isAuthorized, setIsAuthorized] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(ACCESS_STORAGE_KEY) === "granted";
+  });
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [view, setView] = useState<"days" | "grid">("days");
@@ -78,11 +87,13 @@ function EchoEvents() {
   const monthQuery = useQuery({
     queryKey: ["events", rangeFrom, rangeTo],
     queryFn: () => fetchEventsInRange(rangeFrom, rangeTo),
+    enabled: isAuthorized,
   });
 
   const upcomingQuery = useQuery({
     queryKey: ["events-upcoming", today],
     queryFn: () => fetchUpcomingEvents(today, 20),
+    enabled: isAuthorized,
   });
 
   useEffect(() => {
@@ -93,10 +104,11 @@ function EchoEvents() {
   const searchQuery = useQuery({
     queryKey: ["events-search", debounced],
     queryFn: () => searchEvents(debounced),
-    enabled: debounced.trim().length > 1,
+    enabled: isAuthorized && debounced.trim().length > 1,
   });
 
   useEffect(() => {
+    if (!isAuthorized) return;
     const channel = supabase
       .channel("events-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
@@ -106,7 +118,7 @@ function EchoEvents() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [isAuthorized, qc]);
 
   const matchesProject = (e: EventRow) =>
     selectedProjects.length === 0 || selectedProjects.includes(e.project);
@@ -175,6 +187,26 @@ function EchoEvents() {
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
 
+  const handleAuthorized = () => {
+    window.localStorage.setItem(ACCESS_STORAGE_KEY, "granted");
+    setIsAuthorized(true);
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem(ACCESS_STORAGE_KEY);
+    setIsAuthorized(false);
+    setTerm("");
+    setDebounced("");
+    setTab("calendar");
+    setSheetOpen(false);
+    setFiltersOpen(false);
+    void qc.removeQueries();
+  };
+
+  if (!isAuthorized) {
+    return <AuthGate onAuthorized={handleAuthorized} />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-7xl lg:gap-6 lg:px-6 lg:py-6">
@@ -225,6 +257,13 @@ function EchoEvents() {
                 </h1>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="hidden items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:flex lg:bg-elevated"
+                >
+                  <LogOut className="size-4" /> Вийти
+                </button>
                 <button
                   type="button"
                   onClick={goToday}
@@ -346,7 +385,7 @@ function EchoEvents() {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 pb-safe backdrop-blur-xl lg:hidden">
-        <div className="grid grid-cols-5 items-center px-2">
+        <div className="grid grid-cols-6 items-center px-2">
           <NavButton
             active={tab === "calendar" && term.trim().length < 2}
             icon={<CalendarDays className="size-5" />}
@@ -384,6 +423,12 @@ function EchoEvents() {
             label="Проєкти"
             onClick={() => setFiltersOpen(true)}
           />
+          <NavButton
+            active={false}
+            icon={<LogOut className="size-5" />}
+            label="Вийти"
+            onClick={handleLogout}
+          />
         </div>
       </nav>
 
@@ -411,6 +456,67 @@ function EchoEvents() {
         onSaved={() => void qc.invalidateQueries()}
       />
     </div>
+  );
+}
+
+function AuthGate({ onAuthorized }: { onAuthorized: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (password === ACCESS_PASSWORD) {
+      setError("");
+      onAuthorized();
+      return;
+    }
+    setError("Неправильний пароль");
+    setPassword("");
+  };
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-4 py-10">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-float"
+      >
+        <div className="mb-5 flex items-center gap-3">
+          <span className="gradient-bg grid size-12 place-items-center rounded-2xl text-primary-foreground shadow-glow">
+            <LockKeyhole className="size-6" />
+          </span>
+          <div>
+            <h1 className="font-display text-xl font-bold">
+              <span className="gradient-text">ECHO</span> Events
+            </h1>
+            <p className="text-sm text-muted-foreground">Доступ до календаря</p>
+          </div>
+        </div>
+
+        <label htmlFor="site-password" className="mb-2 block text-sm font-semibold">
+          Пароль
+        </label>
+        <input
+          id="site-password"
+          type="password"
+          inputMode="numeric"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            if (error) setError("");
+          }}
+          className="w-full rounded-xl border border-input bg-elevated px-4 py-3.5 text-base outline-none focus:border-primary"
+          autoFocus
+        />
+        {error ? <p className="mt-2 text-sm font-semibold text-destructive">{error}</p> : null}
+        <button
+          type="submit"
+          className="gradient-bg mt-5 flex h-12 w-full items-center justify-center rounded-xl font-bold text-primary-foreground shadow-glow"
+        >
+          Увійти
+        </button>
+      </form>
+    </main>
   );
 }
 
