@@ -27,3 +27,7 @@ npm run dev
 - TypeScript
 - React
 - Tailwind CSS
+
+## Deployment
+
+The Sites deployment archive flattens built public assets to the deployment root so `/assets/*` URLs resolve in production.
