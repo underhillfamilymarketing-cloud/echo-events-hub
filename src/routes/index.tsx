@@ -484,6 +484,8 @@ function EchoEvents() {
 function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCancel: () => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const passwordProgress = Math.min(password.length, ACCESS_PASSWORD.length);
+  const hasInput = password.length > 0;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -497,13 +499,25 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 px-4 py-10 backdrop-blur-xl">
+    <div className="auth-backdrop fixed inset-0 z-50 grid place-items-center bg-background/85 px-4 py-10 backdrop-blur-xl">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-float"
+        className={cn(
+          "auth-card w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-float",
+          error ? "auth-card-error" : "",
+        )}
       >
         <div className="mb-5 flex items-center gap-3">
-          <span className="gradient-bg grid size-12 place-items-center rounded-2xl text-primary-foreground shadow-glow">
+          <span
+            className={cn(
+              "auth-lock gradient-bg grid size-12 place-items-center rounded-2xl text-primary-foreground shadow-glow",
+              hasInput ? "auth-lock-active" : "",
+              passwordProgress === ACCESS_PASSWORD.length ? "auth-lock-ready" : "",
+            )}
+          >
+            <span className="auth-lock-ring" aria-hidden />
+            <span className="auth-spark auth-spark-a" aria-hidden />
+            <span className="auth-spark auth-spark-b" aria-hidden />
             <LockKeyhole className="size-6" />
           </span>
           <div>
@@ -512,6 +526,18 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
             </h1>
             <p className="text-sm text-muted-foreground">Доступ до календаря</p>
           </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-4 gap-2" aria-hidden>
+          {Array.from({ length: ACCESS_PASSWORD.length }, (_, index) => (
+            <span
+              key={index}
+              className={cn(
+                "auth-digit h-2 rounded-full bg-elevated",
+                index < passwordProgress ? "auth-digit-filled" : "",
+              )}
+            />
+          ))}
         </div>
 
         <label htmlFor="site-password" className="mb-2 block text-sm font-semibold">
@@ -527,7 +553,11 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
             setPassword(event.target.value);
             if (error) setError("");
           }}
-          className="w-full rounded-xl border border-input bg-elevated px-4 py-3.5 text-base outline-none focus:border-primary"
+          className={cn(
+            "w-full rounded-xl border border-input bg-elevated px-4 py-3.5 text-base outline-none focus:border-primary",
+            hasInput ? "auth-input-active" : "",
+            error ? "auth-input-error" : "",
+          )}
           autoFocus
         />
         {error ? <p className="mt-2 text-sm font-semibold text-destructive">{error}</p> : null}
