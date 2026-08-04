@@ -21,14 +21,14 @@ export function DayRow({ iso, events, isToday, canEdit = false, onAdd, onOpen }:
     <section
       id={`day-${iso}`}
       className={cn(
-        "rounded-2xl border bg-card p-3 shadow-soft transition-colors sm:p-4",
+        "day-card rounded-2xl border bg-card p-3 shadow-soft transition-colors sm:p-4",
         isToday ? "border-today/60" : "border-border/60",
       )}
     >
       <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
         <div
           className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-xl",
+            "day-number grid size-12 shrink-0 place-items-center rounded-xl",
             isToday ? "gradient-bg text-primary-foreground shadow-glow" : "bg-elevated",
           )}
         >
@@ -55,7 +55,7 @@ export function DayRow({ iso, events, isToday, canEdit = false, onAdd, onOpen }:
             type="button"
             onClick={() => onAdd(iso)}
             aria-label="Додати подію"
-            className="grid size-11 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground transition-colors active:bg-accent"
+            className="day-add-button grid size-11 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground transition-colors active:bg-accent"
           >
             <Plus className="size-5" />
           </button>

@@ -170,6 +170,143 @@
 }
 
 @layer components {
+  .app-shell-bg {
+    background:
+      linear-gradient(180deg, oklch(0.2 0.045 268 / 0.9), transparent 24rem),
+      linear-gradient(135deg, oklch(0.66 0.24 330 / 0.16), transparent 34%),
+      linear-gradient(225deg, oklch(0.75 0.16 48 / 0.12), transparent 28%), var(--background);
+  }
+
+  .surface-card,
+  .calendar-topbar,
+  .day-card,
+  .month-grid-card,
+  .result-row {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .surface-card::before,
+  .calendar-topbar::before,
+  .day-card::before,
+  .month-grid-card::before,
+  .result-row::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(145deg, oklch(1 0 0 / 0.06), transparent 42%);
+  }
+
+  .calendar-topbar {
+    box-shadow:
+      var(--shadow-soft),
+      inset 0 1px 0 oklch(1 0 0 / 0.06);
+  }
+
+  .mode-pill {
+    border: 1px solid oklch(1 0 0 / 0.08);
+    letter-spacing: 0;
+  }
+
+  .mode-pill-view {
+    background: oklch(0.75 0.15 215 / 0.14);
+    color: oklch(0.88 0.09 215);
+  }
+
+  .mode-pill-edit {
+    background: oklch(0.75 0.16 48 / 0.16);
+    color: oklch(0.9 0.12 55);
+  }
+
+  .top-action {
+    min-height: 2.5rem;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .top-action:active,
+  .project-chip:active,
+  .day-add-button:active,
+  .month-nav-button:active {
+    transform: scale(0.97);
+  }
+
+  .edit-cta {
+    background-image: var(--gradient-brand);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .month-strip {
+    border-top: 1px solid oklch(1 0 0 / 0.05);
+    padding-top: 0.75rem;
+  }
+
+  .month-nav-button,
+  .day-number,
+  .day-add-button {
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.06);
+  }
+
+  .calendar-content {
+    animation: calendar-content-in 360ms ease-out both;
+  }
+
+  .project-chip {
+    min-height: 2.35rem;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
+  }
+
+  .day-card {
+    box-shadow:
+      var(--shadow-soft),
+      inset 0 1px 0 oklch(1 0 0 / 0.04);
+  }
+
+  .event-card,
+  .sidebar-event {
+    border: 1px solid oklch(1 0 0 / 0.04);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04);
+  }
+
+  .event-card {
+    background: linear-gradient(135deg, oklch(1 0 0 / 0.04), transparent 50%), var(--elevated);
+  }
+
+  .event-time-badge {
+    background: oklch(0.16 0.03 268 / 0.36);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.08);
+  }
+
+  .month-grid-card {
+    box-shadow:
+      var(--shadow-soft),
+      inset 0 1px 0 oklch(1 0 0 / 0.04);
+  }
+
+  .month-cell {
+    min-height: 4.25rem;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04);
+  }
+
+  @media (hover: hover) {
+    .top-action:hover,
+    .project-chip:hover,
+    .day-add-button:hover,
+    .month-nav-button:hover,
+    .event-card:hover,
+    .result-row:hover,
+    .sidebar-event:hover,
+    .month-cell:hover {
+      border-color: oklch(0.66 0.24 330 / 0.42);
+      transform: translateY(-1px);
+    }
+  }
+
   .auth-backdrop {
     animation: auth-backdrop-in 220ms ease-out both;
   }
@@ -301,6 +438,17 @@
   }
 }
 
+@keyframes calendar-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes auth-card-in {
   from {
     opacity: 0;
@@ -361,6 +509,7 @@
   .auth-card,
   .auth-card-error,
   .auth-lock-active,
+  .calendar-content,
   .auth-lock-active .auth-lock-ring,
   .auth-lock-active .auth-spark-a,
   .auth-lock-active .auth-spark-b {

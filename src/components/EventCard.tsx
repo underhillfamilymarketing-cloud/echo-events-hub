@@ -11,7 +11,7 @@ export function EventCard({ event, onClick }: { event: EventRow; onClick: () => 
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-stretch gap-3 rounded-xl bg-elevated p-3 text-left transition-transform active:scale-[0.985]"
+      className="event-card group flex w-full items-stretch gap-3 rounded-xl bg-elevated p-3 text-left transition-transform active:scale-[0.985]"
     >
       <span
         className="w-1 shrink-0 rounded-full"
@@ -21,7 +21,7 @@ export function EventCard({ event, onClick }: { event: EventRow; onClick: () => 
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           {time && (
-            <span className="shrink-0 font-display text-sm font-bold tabular-nums text-foreground">
+            <span className="event-time-badge shrink-0 rounded-full px-2.5 py-1 font-display text-sm font-bold tabular-nums text-foreground">
               {time}
             </span>
           )}

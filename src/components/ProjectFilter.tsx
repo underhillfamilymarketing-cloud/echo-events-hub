@@ -23,7 +23,7 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
         type="button"
         onClick={onReset}
         className={cn(
-          "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
+          "project-chip shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
           vertical && "text-left",
           all
             ? "gradient-bg border-transparent text-primary-foreground shadow-glow"
@@ -45,7 +45,7 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
                 : { borderColor: `color-mix(in oklab, ${p.color} 45%, transparent)` }
             }
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
+              "project-chip flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
               vertical ? "justify-start text-left" : "",
               active ? "" : "bg-card text-foreground",
             )}
@@ -54,7 +54,7 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
               className="size-2 shrink-0 rounded-full"
               style={{ backgroundColor: active ? "oklch(0.16 0.03 268)" : p.color }}
             />
-            <span className="whitespace-nowrap">{vertical ? p.name : p.short}</span>
+            <span className="max-w-[13rem] truncate whitespace-nowrap">{p.name}</span>
           </button>
         );
       })}

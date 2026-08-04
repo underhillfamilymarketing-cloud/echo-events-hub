@@ -204,11 +204,11 @@ function EchoEvents() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell-bg min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-7xl lg:gap-6 lg:px-6 lg:py-6">
         {/* Desktop sidebar */}
         <aside className="hidden w-80 shrink-0 flex-col gap-4 lg:flex">
-          <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+          <div className="surface-card rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
             <BrandLockup size="desktop" />
             <p className="mt-3 text-sm text-muted-foreground">
               Спільний календар подій агенції. Зміни бачать усі, миттєво.
@@ -230,7 +230,7 @@ function EchoEvents() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+          <div className="surface-card rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
             <p className="mb-3 font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
               Проєкти
             </p>
@@ -242,7 +242,7 @@ function EchoEvents() {
             />
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+          <div className="surface-card rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
             <p className="mb-3 flex items-center gap-2 font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
               <Sparkles className="size-4" /> Найближчі
             </p>
@@ -252,19 +252,33 @@ function EchoEvents() {
 
         {/* Main */}
         <main className="min-w-0 flex-1 pb-32 lg:pb-0">
-          <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 px-4 pt-safe backdrop-blur-xl lg:static lg:rounded-2xl lg:border lg:bg-card lg:px-5 lg:shadow-soft">
+          <header className="calendar-topbar sticky top-0 z-30 border-b border-border/60 bg-background/85 px-4 pt-safe backdrop-blur-xl lg:static lg:rounded-2xl lg:border lg:bg-card lg:px-5 lg:shadow-soft">
             <div className="flex items-center justify-between gap-3 py-3">
               <BrandLockup size="mobile" className="lg:hidden" />
               <div className="hidden lg:block">
-                <h1 className="font-display text-xl font-bold">
+                <h1 className="font-display text-2xl font-bold">
                   <span className="gradient-text">ECHO</span> Events
                 </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isAuthorized ? "Режим редагування" : "Режим перегляду"}
+                </p>
               </div>
               <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "mode-pill hidden rounded-full px-3 py-2 text-xs font-bold uppercase lg:inline-flex",
+                    isAuthorized ? "mode-pill-edit" : "mode-pill-view",
+                  )}
+                >
+                  {isAuthorized ? "Редагування" : "Перегляд"}
+                </span>
                 <button
                   type="button"
                   onClick={isAuthorized ? handleLogout : () => setAuthOpen(true)}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
+                  className={cn(
+                    "top-action flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated",
+                    !isAuthorized ? "edit-cta border-transparent text-primary-foreground" : "",
+                  )}
                 >
                   {isAuthorized ? (
                     <>
@@ -279,11 +293,11 @@ function EchoEvents() {
                 <button
                   type="button"
                   onClick={goToday}
-                  className="rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
+                  className="top-action rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
                 >
                   Сьогодні
                 </button>
-                <div className="flex rounded-full border border-border bg-card p-1 lg:bg-elevated">
+                <div className="top-action flex rounded-full border border-border bg-card p-1 lg:bg-elevated">
                   <button
                     type="button"
                     onClick={() => setView("days")}
@@ -310,21 +324,23 @@ function EchoEvents() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 pb-3">
+            <div className="month-strip flex items-center justify-between gap-2 pb-3">
               <button
                 type="button"
                 onClick={() => shiftMonth(-1)}
                 aria-label="Попередній місяць"
-                className="grid size-10 place-items-center rounded-xl bg-card lg:bg-elevated"
+                className="month-nav-button grid size-10 place-items-center rounded-xl bg-card lg:bg-elevated"
               >
                 <ChevronLeft className="size-5" />
               </button>
-              <h2 className="font-display text-lg font-bold">{monthLabel(year, month)}</h2>
+              <h2 className="font-display text-xl font-bold lg:text-2xl">
+                {monthLabel(year, month)}
+              </h2>
               <button
                 type="button"
                 onClick={() => shiftMonth(1)}
                 aria-label="Наступний місяць"
-                className="grid size-10 place-items-center rounded-xl bg-card lg:bg-elevated"
+                className="month-nav-button grid size-10 place-items-center rounded-xl bg-card lg:bg-elevated"
               >
                 <ChevronRight className="size-5" />
               </button>
@@ -343,7 +359,7 @@ function EchoEvents() {
             </div>
           </header>
 
-          <div className="px-4 pt-4 lg:px-0">
+          <div className="calendar-content px-4 pt-4 lg:px-0">
             {tab === "search" || (term.trim().length > 1 && tab !== "upcoming") ? (
               <div className="flex flex-col gap-3">
                 <div className="lg:hidden">
@@ -619,7 +635,7 @@ function ResultRow({ event, onOpen }: { event: EventRow; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-stretch gap-3 rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-soft active:scale-[0.99]"
+      className="result-row flex w-full items-stretch gap-3 rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-soft active:scale-[0.99]"
     >
       <span className="w-1 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
       <span className="min-w-0 flex-1">
@@ -650,7 +666,7 @@ function UpcomingList({ events, onOpen }: { events: EventRow[]; onOpen: (e: Even
             key={e.id}
             type="button"
             onClick={() => onOpen(e)}
-            className="flex items-stretch gap-2.5 rounded-xl bg-elevated p-2.5 text-left"
+            className="sidebar-event flex items-stretch gap-2.5 rounded-xl bg-elevated p-2.5 text-left"
           >
             <span
               className="w-1 shrink-0 rounded-full"

@@ -24,7 +24,7 @@ export function MonthGrid({
   const lead = weekdayIndex(days[0] ?? `${year}-01-01`);
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft sm:p-4">
+    <div className="month-grid-card rounded-2xl border border-border/60 bg-card p-3 shadow-soft sm:p-4">
       <div className="grid grid-cols-7 gap-1 pb-2">
         {WEEKDAYS_SHORT.map((w) => (
           <div key={w} className="text-center text-[0.7rem] font-semibold text-muted-foreground">
@@ -48,7 +48,7 @@ export function MonthGrid({
               }}
               aria-disabled={!canEdit}
               className={cn(
-                "flex aspect-square flex-col items-center justify-start gap-1 rounded-xl p-1 pt-1.5 transition-colors active:bg-accent",
+                "month-cell flex aspect-square flex-col items-center justify-start gap-1 rounded-xl p-1 pt-1.5 transition-colors active:bg-accent",
                 isToday ? "gradient-bg text-primary-foreground" : "bg-elevated",
                 !canEdit ? "cursor-default" : "",
               )}
