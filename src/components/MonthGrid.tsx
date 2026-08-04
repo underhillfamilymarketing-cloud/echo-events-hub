@@ -8,10 +8,18 @@ type Props = {
   month: number;
   eventsByDay: Map<string, EventRow[]>;
   todayIso: string;
+  canEdit?: boolean;
   onSelectDay: (iso: string) => void;
 };
 
-export function MonthGrid({ year, month, eventsByDay, todayIso, onSelectDay }: Props) {
+export function MonthGrid({
+  year,
+  month,
+  eventsByDay,
+  todayIso,
+  canEdit = false,
+  onSelectDay,
+}: Props) {
   const days = daysInMonth(year, month);
   const lead = weekdayIndex(days[0] ?? `${year}-01-01`);
 
@@ -35,10 +43,14 @@ export function MonthGrid({ year, month, eventsByDay, todayIso, onSelectDay }: P
             <button
               key={iso}
               type="button"
-              onClick={() => onSelectDay(iso)}
+              onClick={() => {
+                if (canEdit) onSelectDay(iso);
+              }}
+              aria-disabled={!canEdit}
               className={cn(
                 "flex aspect-square flex-col items-center justify-start gap-1 rounded-xl p-1 pt-1.5 transition-colors active:bg-accent",
                 isToday ? "gradient-bg text-primary-foreground" : "bg-elevated",
+                !canEdit ? "cursor-default" : "",
               )}
             >
               <span className="font-display text-sm font-bold tabular-nums">{dayNumber(iso)}</span>

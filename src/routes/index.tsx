@@ -57,17 +57,14 @@ export const Route = createFileRoute("/")({
 type Tab = "calendar" | "search" | "upcoming";
 
 const ACCESS_PASSWORD = "1234";
-const ACCESS_STORAGE_KEY = "echo-events-access";
 
 function EchoEvents() {
   const qc = useQueryClient();
   const today = todayISO();
   const now = new Date();
 
-  const [isAuthorized, setIsAuthorized] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(ACCESS_STORAGE_KEY) === "granted";
-  });
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [view, setView] = useState<"days" | "grid">("days");
@@ -87,13 +84,11 @@ function EchoEvents() {
   const monthQuery = useQuery({
     queryKey: ["events", rangeFrom, rangeTo],
     queryFn: () => fetchEventsInRange(rangeFrom, rangeTo),
-    enabled: isAuthorized,
   });
 
   const upcomingQuery = useQuery({
     queryKey: ["events-upcoming", today],
     queryFn: () => fetchUpcomingEvents(today, 20),
-    enabled: isAuthorized,
   });
 
   useEffect(() => {
@@ -104,11 +99,10 @@ function EchoEvents() {
   const searchQuery = useQuery({
     queryKey: ["events-search", debounced],
     queryFn: () => searchEvents(debounced),
-    enabled: isAuthorized && debounced.trim().length > 1,
+    enabled: debounced.trim().length > 1,
   });
 
   useEffect(() => {
-    if (!isAuthorized) return;
     const channel = supabase
       .channel("events-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
@@ -118,7 +112,7 @@ function EchoEvents() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAuthorized, qc]);
+  }, [qc]);
 
   const matchesProject = (e: EventRow) =>
     selectedProjects.length === 0 || selectedProjects.includes(e.project);
@@ -171,12 +165,20 @@ function EchoEvents() {
   };
 
   const openAdd = (iso: string) => {
+    if (!isAuthorized) {
+      setAuthOpen(true);
+      return;
+    }
     setEditing(null);
     setSheetDate(iso);
     setSheetOpen(true);
   };
 
   const openEdit = (event: EventRow) => {
+    if (!isAuthorized) {
+      setAuthOpen(true);
+      return;
+    }
     setEditing(event);
     setSheetDate(event.event_date);
     setSheetOpen(true);
@@ -188,24 +190,18 @@ function EchoEvents() {
     );
 
   const handleAuthorized = () => {
-    window.localStorage.setItem(ACCESS_STORAGE_KEY, "granted");
     setIsAuthorized(true);
+    setAuthOpen(false);
   };
 
   const handleLogout = () => {
-    window.localStorage.removeItem(ACCESS_STORAGE_KEY);
     setIsAuthorized(false);
     setTerm("");
     setDebounced("");
     setTab("calendar");
     setSheetOpen(false);
     setFiltersOpen(false);
-    void qc.removeQueries();
   };
-
-  if (!isAuthorized) {
-    return <AuthGate onAuthorized={handleAuthorized} />;
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -217,13 +213,21 @@ function EchoEvents() {
             <p className="mt-3 text-sm text-muted-foreground">
               Спільний календар подій агенції. Зміни бачать усі, миттєво.
             </p>
-            <button
-              type="button"
-              onClick={() => openAdd(today)}
-              className="gradient-bg mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl font-bold text-primary-foreground shadow-glow"
-            >
-              <Plus className="size-5" /> Нова подія
-            </button>
+            {isAuthorized && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAuthorized) {
+                    openAdd(today);
+                    return;
+                  }
+                  setAuthOpen(true);
+                }}
+                className="gradient-bg mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl font-bold text-primary-foreground shadow-glow"
+              >
+                <Plus className="size-5" /> Нова подія
+              </button>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
@@ -259,10 +263,18 @@ function EchoEvents() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="hidden items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:flex lg:bg-elevated"
+                  onClick={isAuthorized ? handleLogout : () => setAuthOpen(true)}
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
                 >
-                  <LogOut className="size-4" /> Вийти
+                  {isAuthorized ? (
+                    <>
+                      <LogOut className="size-4" /> Вийти
+                    </>
+                  ) : (
+                    <>
+                      <LockKeyhole className="size-4" /> Редагувати
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -335,7 +347,11 @@ function EchoEvents() {
             {tab === "search" || (term.trim().length > 1 && tab !== "upcoming") ? (
               <div className="flex flex-col gap-3">
                 <div className="lg:hidden">
-                  <SearchInput value={term} onChange={setTerm} onFocusTab={() => setTab("search")} />
+                  <SearchInput
+                    value={term}
+                    onChange={setTerm}
+                    onFocusTab={() => setTab("search")}
+                  />
                 </div>
                 {debounced.trim().length < 2 ? (
                   <EmptyState text="Введіть щонайменше 2 символи для пошуку" />
@@ -352,9 +368,7 @@ function EchoEvents() {
                 {upcoming.length === 0 ? (
                   <EmptyState text="Найближчих подій немає" />
                 ) : (
-                  upcoming.map((e) => (
-                    <ResultRow key={e.id} event={e} onOpen={() => openEdit(e)} />
-                  ))
+                  upcoming.map((e) => <ResultRow key={e.id} event={e} onOpen={() => openEdit(e)} />)
                 )}
               </div>
             ) : view === "days" ? (
@@ -365,6 +379,7 @@ function EchoEvents() {
                     iso={iso}
                     events={eventsByDay.get(iso) ?? []}
                     isToday={iso === today}
+                    canEdit={isAuthorized}
                     onAdd={openAdd}
                     onOpen={openEdit}
                   />
@@ -376,6 +391,7 @@ function EchoEvents() {
                 month={month}
                 eventsByDay={eventsByDay}
                 todayIso={today}
+                canEdit={isAuthorized}
                 onSelectDay={openAdd}
               />
             )}
@@ -408,7 +424,7 @@ function EchoEvents() {
               aria-label="Додати подію"
               className="gradient-bg -mt-6 grid size-16 place-items-center rounded-full text-primary-foreground shadow-glow transition-transform active:scale-95"
             >
-              <Plus className="size-7" />
+              {isAuthorized ? <Plus className="size-7" /> : <LockKeyhole className="size-7" />}
             </button>
           </div>
           <NavButton
@@ -425,9 +441,9 @@ function EchoEvents() {
           />
           <NavButton
             active={false}
-            icon={<LogOut className="size-5" />}
-            label="Вийти"
-            onClick={handleLogout}
+            icon={isAuthorized ? <LogOut className="size-5" /> : <LockKeyhole className="size-5" />}
+            label={isAuthorized ? "Вийти" : "Редаг."}
+            onClick={isAuthorized ? handleLogout : () => setAuthOpen(true)}
           />
         </div>
       </nav>
@@ -448,18 +464,24 @@ function EchoEvents() {
         </SheetContent>
       </Sheet>
 
-      <EventSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        date={sheetDate}
-        event={editing}
-        onSaved={() => void qc.invalidateQueries()}
-      />
+      {authOpen ? (
+        <AuthGate onAuthorized={handleAuthorized} onCancel={() => setAuthOpen(false)} />
+      ) : null}
+
+      {isAuthorized ? (
+        <EventSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          date={sheetDate}
+          event={editing}
+          onSaved={() => void qc.invalidateQueries()}
+        />
+      ) : null}
     </div>
   );
 }
 
-function AuthGate({ onAuthorized }: { onAuthorized: () => void }) {
+function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCancel: () => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -475,7 +497,7 @@ function AuthGate({ onAuthorized }: { onAuthorized: () => void }) {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-4 py-10">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 px-4 py-10 backdrop-blur-xl">
       <form
         onSubmit={submit}
         className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-float"
@@ -515,8 +537,15 @@ function AuthGate({ onAuthorized }: { onAuthorized: () => void }) {
         >
           Увійти
         </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-3 flex h-11 w-full items-center justify-center rounded-xl border border-border bg-elevated font-semibold text-muted-foreground"
+        >
+          Скасувати
+        </button>
       </form>
-    </main>
+    </div>
   );
 }
 
@@ -645,13 +674,7 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function BrandLockup({
-  size,
-  className,
-}: {
-  size: "desktop" | "mobile";
-  className?: string;
-}) {
+function BrandLockup({ size, className }: { size: "desktop" | "mobile"; className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)} aria-label="ECHO Marketing">
       <img
@@ -663,9 +686,7 @@ function BrandLockup({
         <div className={cn("font-display font-bold", size === "desktop" ? "text-lg" : "text-base")}>
           <span className="gradient-text">ECHO</span>
         </div>
-        <div className="text-[0.62rem] font-semibold uppercase text-muted-foreground">
-          Events
-        </div>
+        <div className="text-[0.62rem] font-semibold uppercase text-muted-foreground">Events</div>
       </div>
     </div>
   );

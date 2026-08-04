@@ -8,11 +8,12 @@ type Props = {
   iso: string;
   events: EventRow[];
   isToday: boolean;
+  canEdit?: boolean;
   onAdd: (iso: string) => void;
   onOpen: (event: EventRow) => void;
 };
 
-export function DayRow({ iso, events, isToday, onAdd, onOpen }: Props) {
+export function DayRow({ iso, events, isToday, canEdit = false, onAdd, onOpen }: Props) {
   const wd = weekdayIndex(iso);
   const weekend = wd >= 5;
 
@@ -49,14 +50,18 @@ export function DayRow({ iso, events, isToday, onAdd, onOpen }: Props) {
             {events.length > 0 ? `${events.length} подій` : "Немає подій"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onAdd(iso)}
-          aria-label="Додати подію"
-          className="grid size-11 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground transition-colors active:bg-accent"
-        >
-          <Plus className="size-5" />
-        </button>
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => onAdd(iso)}
+            aria-label="Додати подію"
+            className="grid size-11 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground transition-colors active:bg-accent"
+          >
+            <Plus className="size-5" />
+          </button>
+        ) : (
+          <span className="size-11 shrink-0" aria-hidden />
+        )}
       </header>
 
       {events.length > 0 && (
