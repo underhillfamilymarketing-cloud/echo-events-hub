@@ -54,7 +54,9 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
               className="size-2 shrink-0 rounded-full"
               style={{ backgroundColor: active ? "oklch(0.16 0.03 268)" : p.color }}
             />
-            <span className="max-w-[13rem] truncate whitespace-nowrap">{p.name}</span>
+            <span className="project-chip-label max-w-[13rem] truncate whitespace-nowrap">
+              {p.name}
+            </span>
           </button>
         );
       })}

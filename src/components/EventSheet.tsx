@@ -122,7 +122,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
   return (
     <>
       {open ? (
-        <div className="event-editor-shell fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+        <div className="event-editor-shell fixed inset-0 z-50 flex items-end justify-center px-3 pt-safe sm:items-center sm:p-4">
           <button
             type="button"
             className="absolute inset-0 bg-background/80 backdrop-blur-sm"
@@ -136,7 +136,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
             aria-labelledby="event-editor-title"
             className="event-editor-panel relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl"
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+            <div className="event-editor-header flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <h2 id="event-editor-title" className="font-display text-base font-semibold">
                 {event ? "Редагувати подію" : "Нова подія"}
               </h2>
@@ -152,7 +152,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
 
             <form
               onSubmit={handleSave}
-              className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
+              className="event-editor-form flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
             >
               <div>
                 <label htmlFor="title" className={labelClass}>
@@ -188,7 +188,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="event-editor-date-grid grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="date" className={labelClass}>
                     Дата
@@ -271,7 +271,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
                 </a>
               ) : null}
 
-              <div className="mt-1 flex items-center gap-2">
+              <div className="event-editor-actions mt-1 flex items-center gap-2">
                 {event ? (
                   <button
                     type="button"

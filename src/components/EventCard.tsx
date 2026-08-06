@@ -19,7 +19,7 @@ export function EventCard({ event, onClick }: { event: EventRow; onClick: () => 
         aria-hidden
       />
       <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-2">
+        <span className="event-card-title-row flex items-baseline gap-2">
           {time && (
             <span className="event-time-badge shrink-0 rounded-full px-2.5 py-1 font-display text-sm font-bold tabular-nums text-foreground">
               {time}
@@ -29,7 +29,7 @@ export function EventCard({ event, onClick }: { event: EventRow; onClick: () => 
             {event.title}
           </span>
         </span>
-        <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="event-card-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="font-medium" style={{ color: project.color }}>
             {project.name}
           </span>

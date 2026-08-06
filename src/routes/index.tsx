@@ -204,8 +204,8 @@ function EchoEvents() {
   };
 
   return (
-    <div className="app-shell-bg min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-7xl lg:gap-6 lg:px-6 lg:py-6">
+    <div className="app-shell-bg mobile-shell min-h-screen bg-background">
+      <div className="site-frame mx-auto flex w-full max-w-7xl lg:gap-6 lg:px-6 lg:py-6">
         {/* Desktop sidebar */}
         <aside className="hidden w-80 shrink-0 flex-col gap-4 lg:flex">
           <div className="surface-card rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
@@ -251,9 +251,9 @@ function EchoEvents() {
         </aside>
 
         {/* Main */}
-        <main className="min-w-0 flex-1 pb-32 lg:pb-0">
-          <header className="calendar-topbar sticky top-0 z-30 border-b border-border/60 bg-background/85 px-4 pt-safe backdrop-blur-xl lg:static lg:rounded-2xl lg:border lg:bg-card lg:px-5 lg:shadow-soft">
-            <div className="flex items-center justify-between gap-3 py-3">
+        <main className="mobile-main min-w-0 flex-1 pb-32 lg:pb-0">
+          <header className="calendar-topbar mobile-header sticky top-0 z-30 border-b border-border/60 bg-background/85 px-4 pt-safe backdrop-blur-xl lg:static lg:rounded-2xl lg:border lg:bg-card lg:px-5 lg:shadow-soft">
+            <div className="mobile-toolbar-row flex items-center justify-between gap-3 py-3">
               <BrandLockup size="mobile" className="lg:hidden" />
               <div className="hidden lg:block">
                 <h1 className="font-display text-2xl font-bold">
@@ -263,7 +263,7 @@ function EchoEvents() {
                   {isAuthorized ? "Режим редагування" : "Режим перегляду"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="mobile-actions flex items-center gap-2">
                 <span
                   className={cn(
                     "mode-pill hidden rounded-full px-3 py-2 text-xs font-bold uppercase lg:inline-flex",
@@ -293,11 +293,11 @@ function EchoEvents() {
                 <button
                   type="button"
                   onClick={goToday}
-                  className="top-action rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
+                  className="today-button top-action rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold lg:bg-elevated"
                 >
                   Сьогодні
                 </button>
-                <div className="top-action flex rounded-full border border-border bg-card p-1 lg:bg-elevated">
+                <div className="view-switch top-action flex rounded-full border border-border bg-card p-1 lg:bg-elevated">
                   <button
                     type="button"
                     onClick={() => setView("days")}
@@ -324,7 +324,7 @@ function EchoEvents() {
               </div>
             </div>
 
-            <div className="month-strip flex items-center justify-between gap-2 pb-3">
+            <div className="month-strip mobile-month-strip flex items-center justify-between gap-2 pb-3">
               <button
                 type="button"
                 onClick={() => shiftMonth(-1)}
@@ -359,7 +359,7 @@ function EchoEvents() {
             </div>
           </header>
 
-          <div className="calendar-content px-4 pt-4 lg:px-0">
+          <div className="calendar-content mobile-calendar-content px-4 pt-4 lg:px-0">
             {tab === "search" || (term.trim().length > 1 && tab !== "upcoming") ? (
               <div className="flex flex-col gap-3">
                 <div className="lg:hidden">
@@ -416,8 +416,8 @@ function EchoEvents() {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 pb-safe backdrop-blur-xl lg:hidden">
-        <div className="grid grid-cols-6 items-center px-2">
+      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 pb-safe backdrop-blur-xl lg:hidden">
+        <div className="mobile-bottom-nav-grid grid grid-cols-6 items-center px-2">
           <NavButton
             active={tab === "calendar" && term.trim().length < 2}
             icon={<CalendarDays className="size-5" />}
@@ -438,7 +438,7 @@ function EchoEvents() {
               type="button"
               onClick={() => openAdd(today)}
               aria-label="Додати подію"
-              className="gradient-bg -mt-6 grid size-16 place-items-center rounded-full text-primary-foreground shadow-glow transition-transform active:scale-95"
+              className="mobile-fab gradient-bg -mt-6 grid size-16 place-items-center rounded-full text-primary-foreground shadow-glow transition-transform active:scale-95"
             >
               {isAuthorized ? <Plus className="size-7" /> : <LockKeyhole className="size-7" />}
             </button>
@@ -702,7 +702,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-16 flex-col items-center justify-center gap-1 text-[0.68rem] font-semibold",
+        "mobile-nav-button flex h-16 flex-col items-center justify-center gap-1 text-[0.68rem] font-semibold",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >
