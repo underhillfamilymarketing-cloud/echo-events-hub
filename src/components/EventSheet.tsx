@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
-import { Trash2, Calendar, Clock, MapPin, Link2, FileText, Loader2 } from "lucide-react";
+import { Loader2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from "@/components/ui/drawer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,8 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PROJECTS } from "@/lib/projects";
-import { formatLongDate } from "@/lib/date-utils";
-import { createEvent, updateEvent, deleteEvent, type EventRow } from "@/lib/events";
+import { createEvent, deleteEvent, updateEvent, type EventRow } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -59,11 +51,12 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
             description: event.description ?? "",
             link: event.link ?? "",
           }
-        : { ...emptyForm, event_date: date },
+        : { ...emptyForm, event_date: date, event_time: "09:00" },
     );
   }, [open, event, date]);
 
-  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (key: keyof typeof form, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -71,6 +64,11 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
       toast.error("Вкажіть назву події");
       return;
     }
+    if (!form.event_date) {
+      toast.error("Вкажіть дату події");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -82,6 +80,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
         description: form.description.trim() || null,
         link: form.link.trim() || null,
       };
+
       if (event) {
         await updateEvent(event.id, payload);
         toast.success("Подію оновлено");
@@ -89,6 +88,7 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
         await createEvent(payload);
         toast.success("Подію додано");
       }
+
       onSaved();
       onOpenChange(false);
     } catch (err) {
@@ -114,80 +114,84 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
     }
   }
 
+  const canSave = Boolean(form.title.trim() && form.event_date && !saving);
   const fieldClass =
-    "w-full rounded-xl border border-input bg-elevated px-4 py-3.5 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary";
+    "event-editor-field w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30";
+  const labelClass = "mb-1.5 block text-xs font-medium text-muted-foreground";
 
   return (
     <>
-      <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-        <DrawerContent className="max-h-[92vh] border-border bg-card">
-          <div className="mx-auto flex w-full max-w-xl flex-col overflow-hidden">
-            <DrawerHeader className="px-4 pb-2 text-left">
-              <DrawerTitle className="font-display text-xl">
+      {open ? (
+        <div className="event-editor-shell fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            onClick={() => onOpenChange(false)}
+            aria-label="Закрити форму"
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-editor-title"
+            className="event-editor-panel relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <h2 id="event-editor-title" className="font-display text-base font-semibold">
                 {event ? "Редагувати подію" : "Нова подія"}
-              </DrawerTitle>
-              <DrawerDescription className="text-muted-foreground">
-                {form.event_date ? formatLongDate(form.event_date) : ""}
-              </DrawerDescription>
-            </DrawerHeader>
+              </h2>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Закрити"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
 
             <form
               onSubmit={handleSave}
-              className="flex flex-col gap-4 overflow-y-auto px-4 pb-4 pt-1"
+              className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
             >
               <div>
-                <label htmlFor="title" className="mb-1.5 block text-sm font-semibold">
-                  Назва <span className="text-primary">*</span>
+                <label htmlFor="title" className={labelClass}>
+                  Назва події
                 </label>
                 <input
                   id="title"
                   value={form.title}
                   onChange={(e) => set("title", e.target.value)}
-                  placeholder="Наприклад: Зйомка контенту"
+                  placeholder="Наприклад, Reel про новинку"
                   autoComplete="off"
                   maxLength={140}
                   className={fieldClass}
+                  autoFocus
                 />
               </div>
 
               <div>
-                <p className="mb-1.5 block text-sm font-semibold">Проєкт</p>
-                <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-                  {PROJECTS.map((p) => {
-                    const active = form.project === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => set("project", p.id)}
-                        style={
-                          active
-                            ? {
-                                backgroundColor: p.color,
-                                borderColor: p.color,
-                                color: "oklch(0.16 0.03 268)",
-                              }
-                            : { borderColor: `color-mix(in oklab, ${p.color} 45%, transparent)` }
-                        }
-                        className={cn(
-                          "shrink-0 whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold",
-                          active ? "" : "bg-elevated",
-                        )}
-                      >
-                        {p.short}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label htmlFor="project" className={labelClass}>
+                  Проєкт
+                </label>
+                <select
+                  id="project"
+                  value={form.project}
+                  onChange={(e) => set("project", e.target.value)}
+                  className={fieldClass}
+                >
+                  {PROJECTS.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label
-                    htmlFor="date"
-                    className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"
-                  >
-                    <Calendar className="size-3.5" /> Дата
+                  <label htmlFor="date" className={labelClass}>
+                    Дата
                   </label>
                   <input
                     id="date"
@@ -198,11 +202,8 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
                   />
                 </div>
                 <div>
-                  <label
-                    htmlFor="time"
-                    className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"
-                  >
-                    <Clock className="size-3.5" /> Час
+                  <label htmlFor="time" className={labelClass}>
+                    Час
                   </label>
                   <input
                     id="time"
@@ -215,34 +216,28 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
               </div>
 
               <div>
-                <label
-                  htmlFor="location"
-                  className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"
-                >
-                  <MapPin className="size-3.5" /> Локація
+                <label htmlFor="location" className={labelClass}>
+                  Локація
                 </label>
                 <input
                   id="location"
                   value={form.location}
                   onChange={(e) => set("location", e.target.value)}
-                  placeholder="Необов’язково"
+                  placeholder="Де відбувається, наприклад студія або онлайн"
                   maxLength={200}
                   className={fieldClass}
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="description"
-                  className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"
-                >
-                  <FileText className="size-3.5" /> Опис
+                <label htmlFor="description" className={labelClass}>
+                  Опис
                 </label>
                 <textarea
                   id="description"
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
-                  placeholder="Необов’язково"
+                  placeholder="Деталі, завдання або що потрібно підготувати"
                   rows={3}
                   maxLength={2000}
                   className={cn(fieldClass, "resize-none")}
@@ -250,11 +245,8 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
               </div>
 
               <div>
-                <label
-                  htmlFor="link"
-                  className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold"
-                >
-                  <Link2 className="size-3.5" /> Посилання
+                <label htmlFor="link" className={labelClass}>
+                  Посилання
                 </label>
                 <input
                   id="link"
@@ -262,13 +254,13 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
                   inputMode="url"
                   value={form.link}
                   onChange={(e) => set("link", e.target.value)}
-                  placeholder="https://"
+                  placeholder="Лінк на бриф, матеріали або документ"
                   maxLength={500}
                   className={fieldClass}
                 />
               </div>
 
-              {event?.link && (
+              {event?.link ? (
                 <a
                   href={event.link}
                   target="_blank"
@@ -277,32 +269,33 @@ export function EventSheet({ open, onOpenChange, date, event, onSaved }: Props) 
                 >
                   Відкрити посилання
                 </a>
-              )}
+              ) : null}
 
-              <div className="sticky bottom-0 -mx-4 flex gap-2 bg-card px-4 pb-safe pt-3">
-                {event && (
+              <div className="mt-1 flex items-center gap-2">
+                {event ? (
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
                     aria-label="Видалити подію"
-                    className="grid size-14 shrink-0 place-items-center rounded-2xl border border-destructive/40 text-destructive"
+                    className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
                   >
-                    <Trash2 className="size-5" />
+                    <Trash2 className="size-4" />
+                    Видалити
                   </button>
-                )}
+                ) : null}
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="gradient-bg flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl text-base font-bold text-primary-foreground shadow-glow disabled:opacity-60"
+                  disabled={!canSave}
+                  className="ml-auto flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {saving && <Loader2 className="size-4 animate-spin" />}
-                  {event ? "Зберегти зміни" : "Додати подію"}
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {event ? "Зберегти" : "Додати подію"}
                 </button>
               </div>
             </form>
           </div>
-        </DrawerContent>
-      </Drawer>
+        </div>
+      ) : null}
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent className="rounded-2xl border-border bg-card">
