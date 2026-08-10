@@ -116,7 +116,7 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setIntroVisible(false), 5200);
+    const timeout = window.setTimeout(() => setIntroVisible(false), 5600);
     return () => window.clearTimeout(timeout);
   }, []);
 
@@ -506,28 +506,27 @@ function EchoEvents() {
 }
 
 function LaunchIntro({ onSkip }: { onSkip: () => void }) {
-  const launchProjects = ["Underhill", "Pool", "Gustos", "El Cofre"];
-
   return (
     <section
       className="launch-intro fixed inset-0 grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
       aria-label="ECHO Events intro"
     >
-      <div className="launch-orbit launch-orbit-a" aria-hidden />
-      <div className="launch-orbit launch-orbit-b" aria-hidden />
-      <div className="launch-light-sweep" aria-hidden />
-      <div className="launch-grid" aria-hidden>
-        {Array.from({ length: 24 }, (_, index) => (
-          <span
-            key={index}
-            className={cn("launch-cell", index % 5 === 0 ? "launch-cell-hot" : "")}
-          />
+      <div className="launch-vignette" aria-hidden />
+      <div className="launch-aurora launch-aurora-a" aria-hidden />
+      <div className="launch-aurora launch-aurora-b" aria-hidden />
+      <div className="launch-ring launch-ring-a" aria-hidden />
+      <div className="launch-ring launch-ring-b" aria-hidden />
+      <div className="launch-ring launch-ring-c" aria-hidden />
+      <div className="launch-beam" aria-hidden />
+      <div className="launch-constellation" aria-hidden>
+        {Array.from({ length: 28 }, (_, index) => (
+          <span key={index} />
         ))}
       </div>
-      <div className="launch-date-stack" aria-hidden>
-        <span>09:00</span>
-        <span>12:30</span>
-        <span>18:00</span>
+      <div className="launch-calendar-burst" aria-hidden>
+        {Array.from({ length: 21 }, (_, index) => (
+          <span key={index} className={index % 6 === 0 ? "is-hot" : ""} />
+        ))}
       </div>
 
       <button
@@ -539,26 +538,21 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
       </button>
 
       <div className="launch-content relative z-10 flex w-full max-w-md flex-col items-center text-center">
-        <div className="launch-mark gradient-bg grid size-20 place-items-center rounded-3xl shadow-glow">
-          <img src="/icon-192.png" alt="" className="size-12 rounded-2xl" />
+        <div className="launch-symbol">
+          <div className="launch-symbol-glass" aria-hidden />
+          <div className="launch-mark gradient-bg grid size-24 place-items-center rounded-[1.75rem] shadow-glow">
+            <img src="/icon-192.png" alt="" className="size-14 rounded-2xl" />
+          </div>
         </div>
-        <p className="launch-kicker mt-7 text-xs font-bold uppercase text-muted-foreground">
-          Marketing calendar online
+        <p className="launch-kicker mt-8 text-xs font-bold uppercase text-muted-foreground">
+          Opening workspace
         </p>
-        <h1 className="launch-title mt-2 font-display text-4xl font-bold">
+        <h1 className="launch-title mt-2 font-display text-5xl font-bold">
           <span className="gradient-text">ECHO</span> Events
         </h1>
-        <p className="launch-copy mt-3 max-w-xs text-sm leading-6 text-muted-foreground">
-          Підтягуємо події, проєкти і найближчі активності в один живий календар.
-        </p>
-
-        <div className="launch-projects mt-6 flex flex-wrap justify-center gap-2" aria-hidden>
-          {launchProjects.map((project) => (
-            <span key={project}>{project}</span>
-          ))}
-        </div>
-
-        <div className="launch-timeline mt-6 w-full max-w-xs" aria-hidden>
+        <div className="launch-equalizer mt-7" aria-hidden>
+          <span />
+          <span />
           <span />
           <span />
           <span />
@@ -569,7 +563,7 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
         </div>
         <div className="launch-status mt-4 flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur-md">
           <Sparkles className="size-4 text-primary" />
-          Відкриваємо календар
+          Запускаємо календар
         </div>
       </div>
     </section>
