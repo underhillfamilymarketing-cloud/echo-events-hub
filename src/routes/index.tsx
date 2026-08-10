@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -116,7 +116,7 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setIntroVisible(false), 5600);
+    const timeout = window.setTimeout(() => setIntroVisible(false), 6200);
     return () => window.clearTimeout(timeout);
   }, []);
 
@@ -506,51 +506,224 @@ function EchoEvents() {
 }
 
 function LaunchIntro({ onSkip }: { onSkip: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let frame = 0;
+    let raf = 0;
+    const startedAt = performance.now();
+    const colors = {
+      gold: "rgba(255, 170, 74, 0.88)",
+      pink: "rgba(255, 64, 174, 0.84)",
+      violet: "rgba(134, 74, 255, 0.86)",
+      cyan: "rgba(92, 219, 255, 0.72)",
+      white: "rgba(255, 255, 255, 0.92)",
+    };
+
+    const ease = (x: number) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+    const smooth = (x: number) => {
+      const t = Math.max(0, Math.min(1, x));
+      return t * t * (3 - 2 * t);
+    };
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const { innerWidth: width, innerHeight: height } = window;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const roundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, radius);
+    };
+
+    const draw = (now: number) => {
+      frame += 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const t = reduceMotion ? 0.78 : Math.min((now - startedAt) / 6000, 1);
+      const cx = width / 2;
+      const cy = height * 0.47;
+      const scale = Math.min(width / 390, height / 760, 1.25);
+
+      ctx.clearRect(0, 0, width, height);
+
+      const bg = ctx.createLinearGradient(0, 0, width, height);
+      bg.addColorStop(0, "#111018");
+      bg.addColorStop(0.45, "#1b1823");
+      bg.addColorStop(1, "#0d0c12");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      const glowA = ctx.createRadialGradient(
+        cx,
+        cy - 90 * scale,
+        0,
+        cx,
+        cy - 90 * scale,
+        360 * scale,
+      );
+      glowA.addColorStop(0, `rgba(255, 64, 174, ${0.28 + Math.sin(t * 8) * 0.04})`);
+      glowA.addColorStop(0.42, "rgba(134, 74, 255, 0.13)");
+      glowA.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glowA;
+      ctx.fillRect(0, 0, width, height);
+
+      const glowB = ctx.createRadialGradient(
+        cx + 110 * scale,
+        cy + 120 * scale,
+        0,
+        cx + 110 * scale,
+        cy + 120 * scale,
+        280 * scale,
+      );
+      glowB.addColorStop(0, "rgba(255, 170, 74, 0.18)");
+      glowB.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glowB;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      const ringIn = ease((t - 0.08) / 0.28);
+      for (let i = 0; i < 4; i += 1) {
+        const radius = (92 + i * 42 + Math.sin(t * 9 + i) * 5) * scale * ringIn;
+        ctx.rotate(0.004 * frame * (i % 2 === 0 ? 1 : -1));
+        ctx.strokeStyle =
+          i % 2 === 0
+            ? `rgba(255,255,255,${0.13 - i * 0.018})`
+            : `rgba(255,170,74,${0.17 - i * 0.02})`;
+        ctx.lineWidth = (1.2 + i * 0.15) * scale;
+        ctx.setLineDash(i % 2 === 0 ? [18 * scale, 16 * scale] : [4 * scale, 10 * scale]);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, -Math.PI * 0.15 + t * i, Math.PI * 1.28 + t * (i + 1));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const tileStart = ease((t - 0.2) / 0.28);
+      const tileW = 34 * scale;
+      const tileH = 30 * scale;
+      const gap = 8 * scale;
+      const gridW = tileW * 5 + gap * 4;
+      const gridH = tileH * 3 + gap * 2;
+      const gridX = cx - gridW / 2;
+      const gridY = cy + 96 * scale;
+
+      for (let row = 0; row < 3; row += 1) {
+        for (let col = 0; col < 5; col += 1) {
+          const idx = row * 5 + col;
+          const local = ease((t - 0.24 - idx * 0.012) / 0.22);
+          const x = gridX + col * (tileW + gap);
+          const y = gridY + row * (tileH + gap) + (1 - local) * 34 * scale;
+          const hot = idx === 2 || idx === 8 || idx === 13;
+          ctx.globalAlpha = tileStart * local * (hot ? 0.94 : 0.52);
+          roundedRect(x, y, tileW, tileH, 9 * scale);
+          const tileGradient = ctx.createLinearGradient(x, y, x + tileW, y + tileH);
+          tileGradient.addColorStop(0, hot ? colors.pink : "rgba(255,255,255,0.12)");
+          tileGradient.addColorStop(1, hot ? colors.gold : "rgba(255,255,255,0.03)");
+          ctx.fillStyle = tileGradient;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.11)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      const pathIn = smooth((t - 0.42) / 0.24);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.globalAlpha = pathIn;
+      ctx.lineWidth = 2.2 * scale;
+      ctx.strokeStyle = colors.white;
+      ctx.shadowColor = colors.gold;
+      ctx.shadowBlur = 22 * scale;
+      ctx.beginPath();
+      const sweep = Math.PI * 2 * pathIn;
+      ctx.arc(0, 0, 68 * scale, -Math.PI / 2, -Math.PI / 2 + sweep);
+      ctx.stroke();
+      ctx.restore();
+
+      const flash = Math.max(0, 1 - Math.abs(t - 0.72) / 0.08);
+      if (flash > 0) {
+        const line = ctx.createLinearGradient(cx - 190 * scale, cy, cx + 190 * scale, cy);
+        line.addColorStop(0, "rgba(255,255,255,0)");
+        line.addColorStop(0.5, `rgba(255,255,255,${0.55 * flash})`);
+        line.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = line;
+        ctx.fillRect(cx - 220 * scale, cy - 1, 440 * scale, 2);
+      }
+
+      for (let i = 0; i < 36; i += 1) {
+        const angle = i * 1.618 + t * 5;
+        const radius = (70 + ((i * 37) % 180)) * scale;
+        const px = cx + Math.cos(angle) * radius;
+        const py = cy + Math.sin(angle * 0.82) * radius * 0.62;
+        const twinkle = (Math.sin(t * 18 + i) + 1) / 2;
+        ctx.globalAlpha = 0.08 + twinkle * 0.36 * smooth((t - 0.12) / 0.2);
+        ctx.fillStyle = i % 4 === 0 ? colors.gold : i % 3 === 0 ? colors.cyan : colors.white;
+        ctx.beginPath();
+        ctx.arc(px, py, (1.1 + twinkle * 1.2) * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      if (!reduceMotion && t < 1) {
+        raf = requestAnimationFrame(draw);
+      }
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    raf = requestAnimationFrame(draw);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <section
-      className="launch-intro fixed inset-0 grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
+      className="motion-intro fixed inset-0 grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
       aria-label="ECHO Events intro"
     >
-      <div className="launch-vignette" aria-hidden />
-      <div className="launch-aurora launch-aurora-a" aria-hidden />
-      <div className="launch-aurora launch-aurora-b" aria-hidden />
-      <div className="launch-ring launch-ring-a" aria-hidden />
-      <div className="launch-ring launch-ring-b" aria-hidden />
-      <div className="launch-ring launch-ring-c" aria-hidden />
-      <div className="launch-beam" aria-hidden />
-      <div className="launch-constellation" aria-hidden>
-        {Array.from({ length: 28 }, (_, index) => (
-          <span key={index} />
-        ))}
-      </div>
-      <div className="launch-calendar-burst" aria-hidden>
-        {Array.from({ length: 21 }, (_, index) => (
-          <span key={index} className={index % 6 === 0 ? "is-hot" : ""} />
-        ))}
-      </div>
+      <canvas ref={canvasRef} className="motion-intro-canvas absolute inset-0" aria-hidden />
+      <div className="motion-intro-vignette absolute inset-0" aria-hidden />
 
       <button
         type="button"
         onClick={onSkip}
-        className="launch-skip absolute right-4 top-4 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-bold uppercase text-muted-foreground backdrop-blur-md"
+        className="motion-intro-skip absolute right-4 top-4 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-bold uppercase text-muted-foreground backdrop-blur-md"
       >
         Пропустити
       </button>
 
-      <div className="launch-content relative z-10 flex w-full max-w-md flex-col items-center text-center">
-        <div className="launch-symbol">
-          <div className="launch-symbol-glass" aria-hidden />
-          <div className="launch-mark gradient-bg grid size-24 place-items-center rounded-[1.75rem] shadow-glow">
-            <img src="/icon-192.png" alt="" className="size-14 rounded-2xl" />
+      <div className="motion-intro-content relative z-10 flex w-full max-w-md flex-col items-center text-center">
+        <div className="motion-intro-mark-wrap">
+          <div className="motion-intro-halo" aria-hidden />
+          <div className="motion-intro-mark gradient-bg grid place-items-center rounded-[1.75rem] shadow-glow">
+            <img src="/icon-192.png" alt="" className="rounded-2xl" />
           </div>
         </div>
-        <p className="launch-kicker mt-8 text-xs font-bold uppercase text-muted-foreground">
+        <p className="motion-intro-kicker mt-8 text-xs font-bold uppercase text-muted-foreground">
           Opening workspace
         </p>
-        <h1 className="launch-title mt-2 font-display text-5xl font-bold">
+        <h1 className="motion-intro-title mt-2 font-display text-5xl font-bold">
           <span className="gradient-text">ECHO</span> Events
         </h1>
-        <div className="launch-equalizer mt-7" aria-hidden>
+        <div className="motion-intro-bars mt-7" aria-hidden>
           <span />
           <span />
           <span />
@@ -558,10 +731,10 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
           <span />
         </div>
 
-        <div className="launch-progress mt-8 w-full max-w-xs overflow-hidden rounded-full bg-elevated">
+        <div className="motion-intro-progress mt-8 w-full max-w-xs overflow-hidden rounded-full bg-elevated">
           <span />
         </div>
-        <div className="launch-status mt-4 flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur-md">
+        <div className="motion-intro-status mt-4 flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur-md">
           <Sparkles className="size-4 text-primary" />
           Запускаємо календар
         </div>

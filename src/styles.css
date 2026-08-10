@@ -265,6 +265,161 @@
     box-shadow: var(--shadow-glow);
   }
 
+  .motion-intro {
+    z-index: 95;
+    background: #111018;
+    animation: motion-intro-out 820ms ease-in 5.38s both;
+  }
+
+  .motion-intro-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .motion-intro-vignette {
+    background:
+      radial-gradient(circle at center, transparent 0 34%, oklch(0.02 0.01 275 / 0.58) 72%),
+      linear-gradient(
+        180deg,
+        oklch(0.02 0.01 275 / 0.65),
+        transparent 30%,
+        transparent 68%,
+        oklch(0.02 0.01 275 / 0.76)
+      );
+    pointer-events: none;
+  }
+
+  .motion-intro-content {
+    animation: motion-content-in 900ms cubic-bezier(0.2, 0.9, 0.18, 1.08) both;
+  }
+
+  .motion-intro-mark-wrap {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+
+  .motion-intro-halo {
+    position: absolute;
+    width: 11.5rem;
+    aspect-ratio: 1;
+    border-radius: 2.5rem;
+    background: linear-gradient(145deg, oklch(1 0 0 / 0.16), transparent 48%);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.18),
+      0 0 60px oklch(0.63 0.27 320 / 0.24);
+    opacity: 0;
+    transform: rotate(45deg) scale(0.72);
+    animation: motion-halo-in 1200ms cubic-bezier(0.2, 0.9, 0.18, 1.08) 260ms both;
+  }
+
+  .motion-intro-mark {
+    position: relative;
+    width: 6rem;
+    height: 6rem;
+    animation: motion-mark-float 1800ms ease-in-out infinite;
+  }
+
+  .motion-intro-mark::before,
+  .motion-intro-mark::after {
+    content: "";
+    position: absolute;
+    inset: -1rem;
+    z-index: -1;
+    border: 1px solid oklch(1 0 0 / 0.2);
+    border-radius: 2.25rem;
+    animation: motion-mark-ring 1800ms ease-out infinite;
+  }
+
+  .motion-intro-mark::after {
+    animation-delay: 520ms;
+  }
+
+  .motion-intro-mark img {
+    width: 3.55rem;
+    height: 3.55rem;
+  }
+
+  .motion-intro-kicker,
+  .motion-intro-title {
+    letter-spacing: 0;
+  }
+
+  .motion-intro-title {
+    text-shadow: 0 18px 54px oklch(0.02 0.01 275 / 0.72);
+  }
+
+  .motion-intro-bars {
+    display: flex;
+    height: 1.8rem;
+    align-items: end;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .motion-intro-bars span {
+    width: 0.42rem;
+    border-radius: 999px;
+    background-image: var(--gradient-brand);
+    box-shadow: 0 0 18px oklch(0.63 0.27 320 / 0.56);
+    animation: motion-bars 860ms ease-in-out infinite;
+  }
+
+  .motion-intro-bars span:nth-child(1) {
+    height: 42%;
+  }
+
+  .motion-intro-bars span:nth-child(2) {
+    height: 76%;
+    animation-delay: 120ms;
+  }
+
+  .motion-intro-bars span:nth-child(3) {
+    height: 100%;
+    animation-delay: 240ms;
+  }
+
+  .motion-intro-bars span:nth-child(4) {
+    height: 68%;
+    animation-delay: 360ms;
+  }
+
+  .motion-intro-bars span:nth-child(5) {
+    height: 48%;
+    animation-delay: 480ms;
+  }
+
+  .motion-intro-progress {
+    height: 0.42rem;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.06);
+  }
+
+  .motion-intro-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background-image: var(--gradient-brand);
+    box-shadow: 0 0 24px oklch(0.63 0.27 320 / 0.54);
+    transform-origin: left;
+    animation: motion-progress 5100ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  }
+
+  .motion-intro-status {
+    opacity: 0;
+    animation: motion-status-in 620ms ease-out 2450ms both;
+  }
+
+  .motion-intro-skip {
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .motion-intro-skip:active {
+    transform: scale(0.96);
+  }
+
   .launch-intro {
     z-index: 90;
     background:
@@ -725,6 +880,36 @@
       overflow-x: hidden;
     }
 
+    .motion-intro {
+      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+    }
+
+    .motion-intro-title {
+      font-size: 2.75rem;
+      line-height: 1;
+    }
+
+    .motion-intro-halo {
+      width: 9.6rem;
+      border-radius: 2.1rem;
+    }
+
+    .motion-intro-mark {
+      width: 5.5rem;
+      height: 5.5rem;
+      border-radius: 1.45rem;
+    }
+
+    .motion-intro-mark img {
+      width: 3.15rem;
+      height: 3.15rem;
+    }
+
+    .motion-intro-skip {
+      right: 0.875rem;
+      top: calc(0.875rem + env(safe-area-inset-top));
+    }
+
     .launch-intro {
       align-items: center;
       padding-bottom: calc(2rem + env(safe-area-inset-bottom));
@@ -1135,6 +1320,23 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .motion-intro,
+    .motion-intro-content,
+    .motion-intro-halo,
+    .motion-intro-mark,
+    .motion-intro-mark::before,
+    .motion-intro-mark::after,
+    .motion-intro-bars span,
+    .motion-intro-progress span,
+    .motion-intro-status {
+      animation: none;
+    }
+
+    .motion-intro-status,
+    .motion-intro-halo {
+      opacity: 1;
+    }
+
     .launch-content,
     .launch-symbol-glass,
     .launch-mark,
@@ -1185,6 +1387,93 @@
   100% {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+@keyframes motion-intro-out {
+  0%,
+  78% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes motion-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes motion-halo-in {
+  from {
+    opacity: 0;
+    transform: rotate(45deg) scale(0.42);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+  }
+}
+
+@keyframes motion-mark-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-2deg);
+  }
+}
+
+@keyframes motion-mark-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.42);
+  }
+}
+
+@keyframes motion-bars {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: scaleY(0.42);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes motion-progress {
+  from {
+    transform: scaleX(0.08);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes motion-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
