@@ -266,16 +266,23 @@
   }
 
   .launch-intro {
+    z-index: 90;
     background:
-      radial-gradient(circle at 50% 16%, oklch(0.63 0.27 320 / 0.2), transparent 18rem),
-      radial-gradient(circle at 18% 82%, oklch(0.75 0.16 48 / 0.14), transparent 18rem),
-      radial-gradient(circle at 82% 78%, oklch(0.72 0.14 195 / 0.12), transparent 16rem),
+      radial-gradient(circle at 50% 12%, oklch(0.63 0.27 320 / 0.24), transparent 20rem),
+      radial-gradient(circle at 18% 82%, oklch(0.75 0.16 48 / 0.16), transparent 20rem),
+      radial-gradient(circle at 82% 78%, oklch(0.72 0.14 195 / 0.14), transparent 18rem),
+      linear-gradient(
+        180deg,
+        oklch(0.13 0.014 275),
+        oklch(0.17 0.014 275) 54%,
+        oklch(0.12 0.012 275)
+      ),
       var(--background);
-    animation: launch-screen-out 520ms ease-in 1.92s both;
+    animation: launch-screen-out 780ms ease-in 4.45s both;
   }
 
   .launch-content {
-    animation: launch-content-in 720ms cubic-bezier(0.2, 0.9, 0.18, 1.08) both;
+    animation: launch-content-in 820ms cubic-bezier(0.2, 0.9, 0.18, 1.08) both;
   }
 
   .launch-mark {
@@ -305,6 +312,23 @@
 
   .launch-title {
     letter-spacing: 0;
+    text-shadow: 0 18px 54px oklch(0.02 0.01 275 / 0.7);
+  }
+
+  .launch-light-sweep {
+    position: absolute;
+    inset: -20% auto -20% -35%;
+    width: 36%;
+    transform: rotate(18deg);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 0.08),
+      oklch(0.75 0.16 48 / 0.12),
+      transparent
+    );
+    filter: blur(12px);
+    animation: launch-light-sweep 2600ms cubic-bezier(0.2, 0.8, 0.2, 1) 780ms both;
   }
 
   .launch-grid {
@@ -315,8 +339,9 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.55rem;
     transform: translateX(-50%) perspective(760px) rotateX(56deg);
-    opacity: 0.52;
+    opacity: 0;
     mask-image: linear-gradient(to top, transparent, black 26%, black 74%, transparent);
+    animation: launch-grid-in 900ms ease-out 720ms both;
   }
 
   .launch-cell {
@@ -363,6 +388,101 @@
     animation: launch-orbit-spin 7.5s linear infinite reverse;
   }
 
+  .launch-date-stack {
+    position: absolute;
+    right: max(1.25rem, calc(50vw - 24rem));
+    top: 24%;
+    display: grid;
+    gap: 0.65rem;
+    opacity: 0;
+    animation: launch-side-in 780ms ease-out 1200ms both;
+  }
+
+  .launch-date-stack span {
+    border: 1px solid oklch(1 0 0 / 0.1);
+    border-radius: 999px;
+    background: oklch(0.205 0.014 275 / 0.72);
+    padding: 0.55rem 0.8rem;
+    color: oklch(0.97 0.005 280);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(14px);
+  }
+
+  .launch-date-stack span:nth-child(2) {
+    transform: translateX(-1rem);
+  }
+
+  .launch-projects span {
+    border: 1px solid oklch(1 0 0 / 0.1);
+    border-radius: 999px;
+    background: oklch(0.205 0.014 275 / 0.68);
+    padding: 0.45rem 0.7rem;
+    color: oklch(0.86 0.02 275);
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.06);
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+    animation: launch-chip-in 540ms cubic-bezier(0.2, 0.9, 0.18, 1.08) both;
+  }
+
+  .launch-projects span:nth-child(1) {
+    animation-delay: 1260ms;
+  }
+
+  .launch-projects span:nth-child(2) {
+    animation-delay: 1400ms;
+  }
+
+  .launch-projects span:nth-child(3) {
+    animation-delay: 1540ms;
+  }
+
+  .launch-projects span:nth-child(4) {
+    animation-delay: 1680ms;
+  }
+
+  .launch-timeline {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    opacity: 0;
+    animation: launch-status-in 620ms ease-out 1900ms both;
+  }
+
+  .launch-timeline::before {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.18), transparent);
+  }
+
+  .launch-timeline span {
+    position: relative;
+    z-index: 1;
+    height: 0.62rem;
+    border-radius: 999px;
+    background-image: var(--gradient-brand);
+    box-shadow: 0 0 22px -7px oklch(0.63 0.27 320 / 0.8);
+    transform-origin: left;
+    animation: launch-timeline-pulse 1200ms ease-in-out infinite;
+  }
+
+  .launch-timeline span:nth-child(2) {
+    animation-delay: 160ms;
+  }
+
+  .launch-timeline span:nth-child(3) {
+    animation-delay: 320ms;
+  }
+
   .launch-progress {
     height: 0.42rem;
     box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.06);
@@ -375,11 +495,11 @@
     background-image: var(--gradient-brand);
     box-shadow: 0 0 22px oklch(0.63 0.27 320 / 0.54);
     transform-origin: left;
-    animation: launch-progress-fill 1900ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+    animation: launch-progress-fill 4300ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
   }
 
   .launch-status {
-    animation: launch-status-in 620ms ease-out 360ms both;
+    animation: launch-status-in 620ms ease-out 2200ms both;
   }
 
   .launch-skip {
@@ -493,6 +613,17 @@
     .launch-skip {
       right: 0.875rem;
       top: calc(0.875rem + env(safe-area-inset-top));
+    }
+
+    .launch-date-stack {
+      right: 0.875rem;
+      top: 18%;
+      gap: 0.45rem;
+    }
+
+    .launch-date-stack span {
+      padding: 0.42rem 0.62rem;
+      font-size: 0.68rem;
     }
 
     .site-frame {
@@ -845,17 +976,33 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .launch-intro,
     .launch-content,
     .launch-mark,
     .launch-mark::before,
     .launch-mark::after,
+    .launch-light-sweep,
     .launch-cell,
+    .launch-grid,
     .launch-orbit,
+    .launch-date-stack,
+    .launch-projects span,
+    .launch-timeline,
+    .launch-timeline span,
     .launch-progress span,
     .launch-status {
-      animation-duration: 1ms;
-      animation-iteration-count: 1;
+      animation: none;
+    }
+
+    .launch-intro {
+      animation: none;
+    }
+
+    .launch-grid,
+    .launch-date-stack,
+    .launch-projects span,
+    .launch-timeline,
+    .launch-status {
+      opacity: 1;
     }
   }
 }
@@ -871,13 +1018,39 @@
 
 @keyframes launch-screen-out {
   0%,
-  72% {
+  76% {
     opacity: 1;
     visibility: visible;
   }
   100% {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+@keyframes launch-light-sweep {
+  from {
+    opacity: 0;
+    transform: translateX(0) rotate(18deg);
+  }
+  30%,
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(440%) rotate(18deg);
+  }
+}
+
+@keyframes launch-grid-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) perspective(760px) rotateX(58deg) translateY(2rem);
+  }
+  to {
+    opacity: 0.58;
+    transform: translateX(-50%) perspective(760px) rotateX(56deg) translateY(0);
   }
 }
 
@@ -889,6 +1062,36 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes launch-side-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes launch-chip-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes launch-timeline-pulse {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: scaleX(0.74);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
   }
 }
 

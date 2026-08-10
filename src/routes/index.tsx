@@ -116,7 +116,7 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setIntroVisible(false), 2400);
+    const timeout = window.setTimeout(() => setIntroVisible(false), 5200);
     return () => window.clearTimeout(timeout);
   }, []);
 
@@ -506,20 +506,28 @@ function EchoEvents() {
 }
 
 function LaunchIntro({ onSkip }: { onSkip: () => void }) {
+  const launchProjects = ["Underhill", "Pool", "Gustos", "El Cofre"];
+
   return (
     <section
-      className="launch-intro fixed inset-0 z-[70] grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
+      className="launch-intro fixed inset-0 grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
       aria-label="ECHO Events intro"
     >
       <div className="launch-orbit launch-orbit-a" aria-hidden />
       <div className="launch-orbit launch-orbit-b" aria-hidden />
+      <div className="launch-light-sweep" aria-hidden />
       <div className="launch-grid" aria-hidden>
-        {Array.from({ length: 18 }, (_, index) => (
+        {Array.from({ length: 24 }, (_, index) => (
           <span
             key={index}
             className={cn("launch-cell", index % 5 === 0 ? "launch-cell-hot" : "")}
           />
         ))}
+      </div>
+      <div className="launch-date-stack" aria-hidden>
+        <span>09:00</span>
+        <span>12:30</span>
+        <span>18:00</span>
       </div>
 
       <button
@@ -541,8 +549,20 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
           <span className="gradient-text">ECHO</span> Events
         </h1>
         <p className="launch-copy mt-3 max-w-xs text-sm leading-6 text-muted-foreground">
-          Підтягуємо події, проєкти і найближчі активності.
+          Підтягуємо події, проєкти і найближчі активності в один живий календар.
         </p>
+
+        <div className="launch-projects mt-6 flex flex-wrap justify-center gap-2" aria-hidden>
+          {launchProjects.map((project) => (
+            <span key={project}>{project}</span>
+          ))}
+        </div>
+
+        <div className="launch-timeline mt-6 w-full max-w-xs" aria-hidden>
+          <span />
+          <span />
+          <span />
+        </div>
 
         <div className="launch-progress mt-8 w-full max-w-xs overflow-hidden rounded-full bg-elevated">
           <span />
