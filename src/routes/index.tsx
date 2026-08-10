@@ -76,6 +76,7 @@ function EchoEvents() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDate, setSheetDate] = useState(today);
   const [editing, setEditing] = useState<EventRow | null>(null);
+  const [introVisible, setIntroVisible] = useState(true);
 
   const days = useMemo(() => daysInMonth(year, month), [year, month]);
   const rangeFrom = days[0] ?? today;
@@ -113,6 +114,11 @@ function EchoEvents() {
       void supabase.removeChannel(channel);
     };
   }, [qc]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setIntroVisible(false), 2400);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   const matchesProject = (e: EventRow) =>
     selectedProjects.length === 0 || selectedProjects.includes(e.project);
@@ -493,7 +499,60 @@ function EchoEvents() {
           onSaved={() => void qc.invalidateQueries()}
         />
       ) : null}
+
+      {introVisible ? <LaunchIntro onSkip={() => setIntroVisible(false)} /> : null}
     </div>
+  );
+}
+
+function LaunchIntro({ onSkip }: { onSkip: () => void }) {
+  return (
+    <section
+      className="launch-intro fixed inset-0 z-[70] grid place-items-center overflow-hidden bg-background px-5 pt-safe text-foreground"
+      aria-label="ECHO Events intro"
+    >
+      <div className="launch-orbit launch-orbit-a" aria-hidden />
+      <div className="launch-orbit launch-orbit-b" aria-hidden />
+      <div className="launch-grid" aria-hidden>
+        {Array.from({ length: 18 }, (_, index) => (
+          <span
+            key={index}
+            className={cn("launch-cell", index % 5 === 0 ? "launch-cell-hot" : "")}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onSkip}
+        className="launch-skip absolute right-4 top-4 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-bold uppercase text-muted-foreground backdrop-blur-md"
+      >
+        Пропустити
+      </button>
+
+      <div className="launch-content relative z-10 flex w-full max-w-md flex-col items-center text-center">
+        <div className="launch-mark gradient-bg grid size-20 place-items-center rounded-3xl shadow-glow">
+          <img src="/icon-192.png" alt="" className="size-12 rounded-2xl" />
+        </div>
+        <p className="launch-kicker mt-7 text-xs font-bold uppercase text-muted-foreground">
+          Marketing calendar online
+        </p>
+        <h1 className="launch-title mt-2 font-display text-4xl font-bold">
+          <span className="gradient-text">ECHO</span> Events
+        </h1>
+        <p className="launch-copy mt-3 max-w-xs text-sm leading-6 text-muted-foreground">
+          Підтягуємо події, проєкти і найближчі активності.
+        </p>
+
+        <div className="launch-progress mt-8 w-full max-w-xs overflow-hidden rounded-full bg-elevated">
+          <span />
+        </div>
+        <div className="launch-status mt-4 flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-xs font-semibold text-muted-foreground backdrop-blur-md">
+          <Sparkles className="size-4 text-primary" />
+          Відкриваємо календар
+        </div>
+      </div>
+    </section>
   );
 }
 
