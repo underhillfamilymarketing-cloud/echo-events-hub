@@ -116,7 +116,7 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setIntroVisible(false), 6200);
+    const timeout = window.setTimeout(() => setIntroVisible(false), 5000);
     return () => window.clearTimeout(timeout);
   }, []);
 
@@ -423,7 +423,7 @@ function EchoEvents() {
 
       {/* Mobile bottom nav */}
       <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 pb-safe backdrop-blur-xl lg:hidden">
-        <div className="mobile-bottom-nav-grid grid grid-cols-6 items-center px-2">
+        <div className="mobile-bottom-nav-grid grid grid-cols-5 items-center px-2">
           <NavButton
             active={tab === "calendar" && term.trim().length < 2}
             icon={<CalendarDays className="size-5" />}
@@ -460,12 +460,6 @@ function EchoEvents() {
             icon={<SlidersHorizontal className="size-5" />}
             label="Проєкти"
             onClick={() => setFiltersOpen(true)}
-          />
-          <NavButton
-            active={false}
-            icon={isAuthorized ? <LogOut className="size-5" /> : <LockKeyhole className="size-5" />}
-            label={isAuthorized ? "Вийти" : "Редаг."}
-            onClick={isAuthorized ? handleLogout : () => setAuthOpen(true)}
           />
         </div>
       </nav>
@@ -593,24 +587,6 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
       ctx.fillStyle = glowB;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      const ringIn = ease((t - 0.08) / 0.28);
-      for (let i = 0; i < 4; i += 1) {
-        const radius = (92 + i * 42 + Math.sin(t * 9 + i) * 5) * scale * ringIn;
-        ctx.rotate(0.004 * frame * (i % 2 === 0 ? 1 : -1));
-        ctx.strokeStyle =
-          i % 2 === 0
-            ? `rgba(255,255,255,${0.13 - i * 0.018})`
-            : `rgba(255,170,74,${0.17 - i * 0.02})`;
-        ctx.lineWidth = (1.2 + i * 0.15) * scale;
-        ctx.setLineDash(i % 2 === 0 ? [18 * scale, 16 * scale] : [4 * scale, 10 * scale]);
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, -Math.PI * 0.15 + t * i, Math.PI * 1.28 + t * (i + 1));
-        ctx.stroke();
-      }
-      ctx.restore();
-
       const tileStart = ease((t - 0.2) / 0.28);
       const tileW = 34 * scale;
       const tileH = 30 * scale;
@@ -641,40 +617,17 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
       }
       ctx.globalAlpha = 1;
 
-      const pathIn = smooth((t - 0.42) / 0.24);
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.globalAlpha = pathIn;
-      ctx.lineWidth = 2.2 * scale;
-      ctx.strokeStyle = colors.white;
-      ctx.shadowColor = colors.gold;
-      ctx.shadowBlur = 22 * scale;
-      ctx.beginPath();
-      const sweep = Math.PI * 2 * pathIn;
-      ctx.arc(0, 0, 68 * scale, -Math.PI / 2, -Math.PI / 2 + sweep);
-      ctx.stroke();
-      ctx.restore();
-
-      const flash = Math.max(0, 1 - Math.abs(t - 0.72) / 0.08);
-      if (flash > 0) {
-        const line = ctx.createLinearGradient(cx - 190 * scale, cy, cx + 190 * scale, cy);
-        line.addColorStop(0, "rgba(255,255,255,0)");
-        line.addColorStop(0.5, `rgba(255,255,255,${0.55 * flash})`);
-        line.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = line;
-        ctx.fillRect(cx - 220 * scale, cy - 1, 440 * scale, 2);
-      }
-
-      for (let i = 0; i < 36; i += 1) {
+      const threadIn = smooth((t - 0.34) / 0.32);
+      for (let i = 0; i < 18; i += 1) {
         const angle = i * 1.618 + t * 5;
-        const radius = (70 + ((i * 37) % 180)) * scale;
+        const radius = (74 + ((i * 29) % 130)) * scale;
         const px = cx + Math.cos(angle) * radius;
         const py = cy + Math.sin(angle * 0.82) * radius * 0.62;
         const twinkle = (Math.sin(t * 18 + i) + 1) / 2;
-        ctx.globalAlpha = 0.08 + twinkle * 0.36 * smooth((t - 0.12) / 0.2);
+        ctx.globalAlpha = (0.05 + twinkle * 0.22) * threadIn;
         ctx.fillStyle = i % 4 === 0 ? colors.gold : i % 3 === 0 ? colors.cyan : colors.white;
         ctx.beginPath();
-        ctx.arc(px, py, (1.1 + twinkle * 1.2) * scale, 0, Math.PI * 2);
+        ctx.arc(px, py, (0.85 + twinkle * 0.9) * scale, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
