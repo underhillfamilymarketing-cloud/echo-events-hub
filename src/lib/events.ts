@@ -35,8 +35,8 @@ export async function fetchUpcomingEvents(fromDate: string, limit = 8): Promise<
     .select(COLUMNS)
     .gte("event_date", fromDate)
     .order("event_date", { ascending: true })
-    .order("event_time", { ascending: true, nullsFirst: true })
-    .limit(limit)
+    .order("event_time", { ascending: true, nullsFirst: false })
+    .limit(Math.max(limit * 5, 50))
     .returns<EventRow[]>();
   if (error) throw error;
   return data ?? [];
@@ -57,7 +57,11 @@ export async function searchEvents(term: string): Promise<EventRow[]> {
 }
 
 export async function createEvent(input: EventInput) {
-  const { data, error } = await supabase.from("events").insert(input).select(COLUMNS).single<EventRow>();
+  const { data, error } = await supabase
+    .from("events")
+    .insert(input)
+    .select(COLUMNS)
+    .single<EventRow>();
   if (error) throw error;
   queueEventSheetSync("create", data ?? input);
 }

@@ -57,6 +57,26 @@ export const Route = createFileRoute("/")({
 type Tab = "calendar" | "search" | "upcoming";
 
 const ACCESS_PASSWORD = "1234";
+const DAY_END_MINUTES = 24 * 60;
+
+function eventTimeMinutes(event: EventRow): number {
+  if (!event.event_time) return DAY_END_MINUTES;
+  const [hours = "0", minutes = "0"] = event.event_time.split(":");
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function compareEventsByStart(a: EventRow, b: EventRow) {
+  const byDate = a.event_date.localeCompare(b.event_date);
+  if (byDate !== 0) return byDate;
+  return eventTimeMinutes(a) - eventTimeMinutes(b);
+}
+
+function isUpcomingEvent(event: EventRow, now: Date, today: string) {
+  if (event.event_date > today) return true;
+  if (event.event_date < today) return false;
+  if (!event.event_time) return true;
+  return eventTimeMinutes(event) >= now.getHours() * 60 + now.getMinutes();
+}
 
 function EchoEvents() {
   const qc = useQueryClient();
@@ -144,11 +164,19 @@ function EchoEvents() {
     const merged = [...base, ...extra].filter(
       (e, i, arr) => arr.findIndex((x) => x.id === e.id) === i,
     );
-    return merged.filter(matchesProject).sort((a, b) => a.event_date.localeCompare(b.event_date));
+    return merged.filter(matchesProject).sort(compareEventsByStart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery.data, upcomingQuery.data, debounced, selectedProjects]);
 
-  const upcoming = (upcomingQuery.data ?? []).filter(matchesProject);
+  const upcoming = useMemo(
+    () =>
+      (upcomingQuery.data ?? [])
+        .filter(matchesProject)
+        .filter((event) => isUpcomingEvent(event, now, today))
+        .sort(compareEventsByStart),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [upcomingQuery.data, selectedProjects, today],
+  );
 
   const shiftMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
