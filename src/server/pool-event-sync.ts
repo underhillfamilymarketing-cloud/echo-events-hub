@@ -47,6 +47,11 @@ function stripMarkup(value: string): string {
     .trim();
 }
 
+function normaliseStoredTime(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return value.match(/^\d{2}:\d{2}/)?.[0] ?? value;
+}
+
 function firstMatch(html: string, pattern: RegExp): string | null {
   const match = html.match(pattern);
   return match?.[1] ? decodeHtml(match[1]).trim() : null;
@@ -135,9 +140,12 @@ async function performSync(): Promise<PoolSyncResult> {
       continue;
     }
 
-    const changed = ["title", "event_date", "event_time", "location", "description"].some(
-      (field) => existing[field] !== event[field as keyof ParsedEvent],
-    );
+    const changed =
+      existing.title !== event.title ||
+      existing.event_date !== event.event_date ||
+      normaliseStoredTime(existing.event_time) !== event.event_time ||
+      existing.location !== event.location ||
+      existing.description !== event.description;
     if (!changed) {
       result.unchanged += 1;
       continue;
