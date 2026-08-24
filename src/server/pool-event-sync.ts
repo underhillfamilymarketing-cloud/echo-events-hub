@@ -374,7 +374,7 @@ async function syncOneEvent(event: ParsedEvent, result: PoolSyncResult) {
 
 async function performSync(sources: PoolSyncSources = {}): Promise<PoolSyncResult> {
   const result: PoolSyncResult = {
-    source: `${POOL_HOME_URL} + Instagram + Kasa${sources.instagramMedia ? " + Meta API" : ""}`,
+    source: `${POOL_HOME_URL} + Instagram + Kasa + OneClix${sources.instagramMedia ? " + Meta API" : ""}`,
     scanned: 0,
     inserted: 0,
     updated: 0,
