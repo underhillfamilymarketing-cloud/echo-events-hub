@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 const POOL_HOME_URL = "https://pool.if.ua/";
 const POOL_INSTAGRAM_URL = "https://www.instagram.com/pool_cruce_de_mares/";
 const POOL_KASA_URL = "https://kasa.com.ua/pool_cruce_de_mares-t2215162786";
+const POOL_ONECLIX_URL = "https://tickets.oneclix.com/ivano-frankivsk";
 const POOL_LOCATION = "POOL Cruce de Mares, вул. Миру, 60, Драгомирчани";
 const SYNC_COOLDOWN_MS = 15 * 60 * 1000;
 
@@ -228,6 +229,57 @@ function parseKasaEvents(html: string): ParsedEvent[] {
   return events;
 }
 
+function decodeJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`) as string;
+  } catch {
+    return value.replace(/\\"/g, '"').replace(/\\n/g, " ").trim();
+  }
+}
+
+function localDateTimeParts(value: string): { date: string; time: string } | null {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Kyiv",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(parsed);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  if (!values.year || !values.month || !values.day || !values.hour || !values.minute) return null;
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`,
+  };
+}
+
+function parseOneClixEvents(html: string): ParsedEvent[] {
+  const events: ParsedEvent[] = [];
+  const pattern =
+    /\\\x22id\\\x22:\\\x22[^\x22]+\\\x22,\\\x22name\\\x22:\\\x22([^\x22]+)\\\x22,\\\x22event_type\\\x22:\\\x22[^\x22]*\\\x22,\\\x22event_slug\\\x22:\\\x22([^\x22]+)\\\x22[\s\S]{0,900}?\\\x22start_time\\\x22:\\\x22([^\x22]+)\\\x22[\s\S]{0,1200}?\\\x22location\\\x22:\{[\s\S]{0,500}?\\\x22name\\\x22:\\\x22POOL Cruce de Mares\\\x22/g;
+
+  for (const match of html.matchAll(pattern)) {
+    const [, rawTitle, slug, startTime] = match;
+    const dateTime = localDateTimeParts(startTime);
+    if (!dateTime || !dateTime.date.startsWith(`${currentYear()}-`)) continue;
+    events.push({
+      title: stripMarkup(decodeJsonString(rawTitle)),
+      event_date: dateTime.date,
+      event_time: dateTime.time,
+      location: POOL_LOCATION,
+      description: "Знайдено у відкритій афіші OneClix для POOL Cruce de Mares.",
+      link: `https://tickets.oneclix.com/concert/${decodeJsonString(slug)}`,
+      source: "ticketing",
+    });
+  }
+  return events;
+}
+
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: { "user-agent": "ECHO Events Hub Pool Sync/1.0" },
@@ -278,13 +330,16 @@ function mergeSocialEvent(
   event: ParsedEvent,
 ) {
   if (!existing || existing.link === event.link) return event;
+  const replaceSyntheticLink =
+    existing.link.includes("instagram.com/pool_cruce_de_mares/#event-") ||
+    existing.link.includes("instagram.com/pool_cruce_de_mares/#meta-");
   return {
     ...event,
     title: existing.title.length >= event.title.length ? existing.title : event.title,
     event_time: existing.event_time ?? event.event_time,
     location: existing.location ?? event.location,
     description: existing.description ?? event.description,
-    link: existing.link ?? event.link,
+    link: replaceSyntheticLink ? event.link : (existing.link ?? event.link),
   };
 }
 
@@ -368,6 +423,14 @@ async function performSync(sources: PoolSyncSources = {}): Promise<PoolSyncResul
     const kasaEvents = parseKasaEvents(await fetchText(POOL_KASA_URL));
     result.scanned += kasaEvents.length;
     candidates.push(...kasaEvents);
+  } catch {
+    result.skipped += 1;
+  }
+
+  try {
+    const oneClixEvents = parseOneClixEvents(await fetchText(POOL_ONECLIX_URL));
+    result.scanned += oneClixEvents.length;
+    candidates.push(...oneClixEvents);
   } catch {
     result.skipped += 1;
   }
