@@ -3,6 +3,11 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { syncPoolEvents } from "./server/pool-event-sync";
+import {
+  handleInstagramCallback,
+  handleInstagramConnect,
+  syncInstagramEvents,
+} from "./server/meta-instagram";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -11,6 +16,11 @@ type ServerEntry = {
 type RuntimeEnv = {
   EVENTS_SHEETS_WEBHOOK_URL?: string;
   EVENTS_SHEETS_WEBHOOK_TOKEN?: string;
+  META_INSTAGRAM_APP_ID?: string;
+  META_INSTAGRAM_APP_SECRET?: string;
+  META_INSTAGRAM_REDIRECT_URI?: string;
+  META_INSTAGRAM_ACCESS_TOKEN?: string;
+  META_INSTAGRAM_USER_ID?: string;
 };
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
@@ -105,6 +115,21 @@ export default {
       }
       if (url.pathname === "/api/pool-events-sync") {
         return await handlePoolEventSync(request);
+      }
+      if (url.pathname === "/api/meta/instagram/connect") {
+        return handleInstagramConnect(request, (env ?? {}) as RuntimeEnv);
+      }
+      if (url.pathname === "/api/meta/instagram/callback") {
+        return await handleInstagramCallback(request, (env ?? {}) as RuntimeEnv);
+      }
+      if (url.pathname === "/api/meta/instagram-sync") {
+        if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+        try {
+          return Response.json(await syncInstagramEvents((env ?? {}) as RuntimeEnv));
+        } catch (error) {
+          console.warn("[meta-instagram] sync failed", error);
+          return Response.json({ error: "Instagram sync failed" }, { status: 502 });
+        }
       }
 
       const handler = await getServerEntry();

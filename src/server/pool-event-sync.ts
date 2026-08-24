@@ -25,7 +25,18 @@ type ParsedEvent = {
   location: string;
   description: string | null;
   link: string;
-  source: "official" | "instagram" | "ticketing";
+  source: "official" | "instagram" | "ticketing" | "meta";
+};
+
+export type InstagramMediaCandidate = {
+  caption?: string;
+  permalink?: string;
+  timestamp?: string;
+};
+
+type PoolSyncSources = {
+  instagramMedia?: InstagramMediaCandidate[];
+  instagramStories?: InstagramMediaCandidate[];
 };
 
 function decodeHtml(value: string): string {
@@ -149,6 +160,53 @@ function parseInstagramBioEvents(html: string): ParsedEvent[] {
   return events;
 }
 
+function parseMetaCaptionEvent(candidate: InstagramMediaCandidate): ParsedEvent | null {
+  const caption = candidate.caption?.trim();
+  if (!caption) return null;
+
+  const dateMatch = caption.match(/(?:^|\s)(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?(?=\s|$|\|)/u);
+  if (!dateMatch) return null;
+  const year = dateMatch[3] ?? currentYear();
+  if (year !== currentYear()) return null;
+
+  const day = dateMatch[1].padStart(2, "0");
+  const month = dateMatch[2].padStart(2, "0");
+  const eventDate = `${year}-${month}-${day}`;
+  const timeMatch = caption.match(/(?:о|at|від|початок|start)?\s*(\d{1,2}):([0-5]\d)/iu);
+  const titleLine = caption
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => /\d{1,2}[./]\d{1,2}/u.test(line));
+  const rawTitle = (titleLine ?? caption)
+    .replace(/^[^\d\n]*\d{1,2}[./]\d{1,2}(?:[./]\d{4})?\s*/u, "")
+    .replace(/^\|\s*/u, "")
+    .replace(/(?:о|at|від|початок|start)?\s*\d{1,2}:[0-5]\d.*$/iu, "")
+    .replace(/https?:\/\/\S+/giu, "")
+    .replace(/[#@][\w.-]+/gu, "")
+    .replace(/[|•]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (rawTitle.length < 3) return null;
+
+  const link = candidate.permalink ?? `${POOL_INSTAGRAM_URL}#meta-${eventDate}`;
+  return {
+    title: rawTitle.slice(0, 180),
+    event_date: eventDate,
+    event_time: timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}` : null,
+    location: POOL_LOCATION,
+    description: `Знайдено через Instagram API у публікації Pool Cruce de Mares.${caption.length > 420 ? ` ${caption.slice(0, 420)}…` : ` ${caption}`}`,
+    link,
+    source: "meta",
+  };
+}
+
+function parseMetaMediaEvents(candidates: InstagramMediaCandidate[]): ParsedEvent[] {
+  return candidates.flatMap((candidate) => {
+    const event = parseMetaCaptionEvent(candidate);
+    return event ? [event] : [];
+  });
+}
+
 function parseKasaEvents(html: string): ParsedEvent[] {
   const events: ParsedEvent[] = [];
   const pattern =
@@ -259,9 +317,9 @@ async function syncOneEvent(event: ParsedEvent, result: PoolSyncResult) {
   result.updated += 1;
 }
 
-async function performSync(): Promise<PoolSyncResult> {
+async function performSync(sources: PoolSyncSources = {}): Promise<PoolSyncResult> {
   const result: PoolSyncResult = {
-    source: `${POOL_HOME_URL} + Instagram + Kasa`,
+    source: `${POOL_HOME_URL} + Instagram + Kasa${sources.instagramMedia ? " + Meta API" : ""}`,
     scanned: 0,
     inserted: 0,
     updated: 0,
@@ -286,6 +344,17 @@ async function performSync(): Promise<PoolSyncResult> {
   } catch {
     result.skipped += 1;
   }
+
+  const metaEvents = parseMetaMediaEvents([
+    ...(sources.instagramMedia ?? []),
+    ...(sources.instagramStories ?? []),
+  ]);
+  result.scanned += (sources.instagramMedia?.length ?? 0) + (sources.instagramStories?.length ?? 0);
+  result.skipped +=
+    (sources.instagramMedia?.length ?? 0) +
+    (sources.instagramStories?.length ?? 0) -
+    metaEvents.length;
+  candidates.push(...metaEvents);
 
   try {
     const instagramEvents = parseInstagramBioEvents(await fetchText(POOL_INSTAGRAM_URL));
@@ -315,7 +384,7 @@ async function performSync(): Promise<PoolSyncResult> {
   return result;
 }
 
-export function syncPoolEvents(): Promise<PoolSyncResult> {
+export function syncPoolEvents(sources: PoolSyncSources = {}): Promise<PoolSyncResult> {
   if (activeSync) return activeSync;
   if (Date.now() - lastSyncAt < SYNC_COOLDOWN_MS) {
     return Promise.resolve({
@@ -328,7 +397,7 @@ export function syncPoolEvents(): Promise<PoolSyncResult> {
     });
   }
 
-  activeSync = performSync().finally(() => {
+  activeSync = performSync(sources).finally(() => {
     activeSync = undefined;
   });
   return activeSync;

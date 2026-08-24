@@ -137,13 +137,16 @@ function EchoEvents() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/pool-events-sync", { method: "POST" })
+    void fetch("/api/meta/instagram-sync", { method: "POST" })
       .then((response) => {
-        if (!response.ok) throw new Error(`Pool sync returned ${response.status}`);
-        return response.json() as Promise<{ inserted?: number; updated?: number }>;
+        if (!response.ok) throw new Error(`Event sync returned ${response.status}`);
+        return response.json() as Promise<{
+          result?: { inserted?: number; updated?: number };
+        }>;
       })
       .then((result) => {
-        if (cancelled || (!result.inserted && !result.updated)) return;
+        const changes = result.result;
+        if (cancelled || (!changes?.inserted && !changes?.updated)) return;
         void qc.invalidateQueries();
       })
       .catch(() => {
