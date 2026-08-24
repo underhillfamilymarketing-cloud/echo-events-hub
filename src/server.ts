@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { syncPoolEvents } from "./server/pool-event-sync";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -81,12 +82,29 @@ async function handleEventsSheetSync(request: Request, env: RuntimeEnv): Promise
   return new Response(null, { status: 204 });
 }
 
+async function handlePoolEventSync(request: Request): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  try {
+    const result = await syncPoolEvents();
+    return Response.json(result);
+  } catch (error) {
+    console.warn("[pool-event-sync] source sync failed", error);
+    return Response.json({ error: "Pool event sync failed" }, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
       if (url.pathname === "/api/events-sheet-sync") {
         return await handleEventsSheetSync(request, (env ?? {}) as RuntimeEnv);
+      }
+      if (url.pathname === "/api/pool-events-sync") {
+        return await handlePoolEventSync(request);
       }
 
       const handler = await getServerEntry();

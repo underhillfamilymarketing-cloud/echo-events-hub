@@ -136,6 +136,25 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/pool-events-sync", { method: "POST" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Pool sync returned ${response.status}`);
+        return response.json() as Promise<{ inserted?: number; updated?: number }>;
+      })
+      .then((result) => {
+        if (cancelled || (!result.inserted && !result.updated)) return;
+        void qc.invalidateQueries();
+      })
+      .catch(() => {
+        // Pool sync is best effort; the calendar remains available from Supabase.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [qc]);
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => setIntroVisible(false), 5000);
     return () => window.clearTimeout(timeout);
   }, []);
