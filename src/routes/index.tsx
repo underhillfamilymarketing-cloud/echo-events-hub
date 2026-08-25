@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
@@ -506,9 +507,9 @@ function EchoEvents() {
             onClick={() => setTab("upcoming")}
           />
           <NavButton
-            active={filtersOpen}
+            active={filtersOpen || selectedProjects.length > 0}
             icon={<SlidersHorizontal className="size-5" />}
-            label="Проєкти"
+            label={selectedProjects.length ? `Проєкти (${selectedProjects.length})` : "Проєкти"}
             onClick={() => setFiltersOpen(true)}
           />
         </div>
@@ -526,6 +527,14 @@ function EchoEvents() {
               onToggle={toggleProject}
               onReset={() => setSelectedProjects([])}
             />
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-foreground px-4 text-sm font-bold text-background transition-opacity active:opacity-80"
+            >
+              <Check className="size-4" />
+              Готово
+            </button>
           </div>
         </SheetContent>
       </Sheet>

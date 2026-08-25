@@ -21,6 +21,8 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
     >
       <button
         type="button"
+        aria-pressed={all}
+        data-project-id="all"
         onClick={onReset}
         className={cn(
           "project-chip shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
@@ -38,6 +40,8 @@ export function ProjectFilter({ selected, onToggle, onReset, vertical }: Props) 
           <button
             key={p.id}
             type="button"
+            aria-pressed={active}
+            data-project-id={p.id}
             onClick={() => onToggle(p.id)}
             style={
               active
