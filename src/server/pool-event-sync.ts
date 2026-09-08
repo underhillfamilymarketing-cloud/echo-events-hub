@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { createEventsAdminClient } from "./events-store";
+import type { RuntimeEnv } from "./runtime-env";
 
 const POOL_HOME_URL = "https://pool.if.ua/";
 const POOL_INSTAGRAM_URL = "https://www.instagram.com/pool_cruce_de_mares/";
@@ -38,6 +39,18 @@ export type InstagramMediaCandidate = {
 type PoolSyncSources = {
   instagramMedia?: InstagramMediaCandidate[];
   instagramStories?: InstagramMediaCandidate[];
+};
+
+type EventsClient = ReturnType<typeof createEventsAdminClient>;
+
+type ExistingEvent = {
+  id: string;
+  title: string;
+  event_date: string;
+  event_time: string | null;
+  location: string | null;
+  description: string | null;
+  link: string | null;
 };
 
 function decodeHtml(value: string): string {
@@ -306,8 +319,11 @@ function isLikelySameEvent(left: string, right: string): boolean {
   return overlap >= Math.max(2, Math.ceil(Math.min(leftTokens.size, rightTokens.size) * 0.5));
 }
 
-async function findExistingEvent(event: ParsedEvent) {
-  const { data: exact, error: exactError } = await supabase
+async function findExistingEvent(
+  client: EventsClient,
+  event: ParsedEvent,
+): Promise<ExistingEvent | null> {
+  const { data: exact, error: exactError } = await client
     .from("events")
     .select("id,title,event_date,event_time,location,description,link")
     .eq("project", "pool")
@@ -316,7 +332,7 @@ async function findExistingEvent(event: ParsedEvent) {
   if (exactError) throw exactError;
   if (exact) return exact;
 
-  const { data: sameDate, error: dateError } = await supabase
+  const { data: sameDate, error: dateError } = await client
     .from("events")
     .select("id,title,event_date,event_time,location,description,link")
     .eq("project", "pool")
@@ -325,10 +341,7 @@ async function findExistingEvent(event: ParsedEvent) {
   return sameDate?.find((candidate) => isLikelySameEvent(candidate.title, event.title)) ?? null;
 }
 
-function mergeSocialEvent(
-  existing: Awaited<ReturnType<typeof findExistingEvent>>,
-  event: ParsedEvent,
-) {
+function mergeSocialEvent(existing: ExistingEvent | null, event: ParsedEvent) {
   if (!existing || existing.link === event.link) return event;
   const replaceSyntheticLink =
     existing.link.includes("instagram.com/pool_cruce_de_mares/#event-") ||
@@ -343,11 +356,13 @@ function mergeSocialEvent(
   };
 }
 
-async function syncOneEvent(event: ParsedEvent, result: PoolSyncResult) {
-  const existing = await findExistingEvent(event);
+async function syncOneEvent(client: EventsClient, event: ParsedEvent, result: PoolSyncResult) {
+  const existing = await findExistingEvent(client, event);
   if (!existing) {
     const { source: _source, ...row } = event;
-    const { error } = await supabase.from("events").insert({ ...row, project: "pool" });
+    const { error } = await client
+      .from("events")
+      .insert({ ...row, project: "pool", created_via: "pool_sync" });
     if (error) throw error;
     result.inserted += 1;
     return;
@@ -367,12 +382,15 @@ async function syncOneEvent(event: ParsedEvent, result: PoolSyncResult) {
   }
 
   const { source: _source, ...row } = update;
-  const { error } = await supabase.from("events").update(row).eq("id", existing.id);
+  const { error } = await client.from("events").update(row).eq("id", existing.id);
   if (error) throw error;
   result.updated += 1;
 }
 
-async function performSync(sources: PoolSyncSources = {}): Promise<PoolSyncResult> {
+async function performSync(
+  client: EventsClient,
+  sources: PoolSyncSources = {},
+): Promise<PoolSyncResult> {
   const result: PoolSyncResult = {
     source: `${POOL_HOME_URL} + Instagram + Kasa + OneClix${sources.instagramMedia ? " + Meta API" : ""}`,
     scanned: 0,
@@ -436,18 +454,21 @@ async function performSync(sources: PoolSyncSources = {}): Promise<PoolSyncResul
   }
 
   for (const event of candidates) {
-    if (!event.event_date.startsWith("2026-")) {
+    if (!event.event_date.startsWith(`${currentYear()}-`)) {
       result.skipped += 1;
       continue;
     }
-    await syncOneEvent(event, result);
+    await syncOneEvent(client, event, result);
   }
 
   lastSyncAt = Date.now();
   return result;
 }
 
-export function syncPoolEvents(sources: PoolSyncSources = {}): Promise<PoolSyncResult> {
+export function syncPoolEvents(
+  sources: PoolSyncSources = {},
+  env: RuntimeEnv = {},
+): Promise<PoolSyncResult> {
   if (activeSync) return activeSync;
   if (Date.now() - lastSyncAt < SYNC_COOLDOWN_MS) {
     return Promise.resolve({
@@ -460,7 +481,7 @@ export function syncPoolEvents(sources: PoolSyncSources = {}): Promise<PoolSyncR
     });
   }
 
-  activeSync = performSync(sources).finally(() => {
+  activeSync = performSync(createEventsAdminClient(env), sources).finally(() => {
     activeSync = undefined;
   });
   return activeSync;

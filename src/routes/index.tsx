@@ -17,7 +17,15 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchEventsInRange, fetchUpcomingEvents, searchEvents, type EventRow } from "@/lib/events";
+import {
+  clearEditorSession,
+  createEditorSession,
+  fetchEventsInRange,
+  fetchUpcomingEvents,
+  readEditorSession,
+  searchEvents,
+  type EventRow,
+} from "@/lib/events";
 import { PROJECTS, getProject } from "@/lib/projects";
 import {
   daysInMonth,
@@ -57,7 +65,7 @@ export const Route = createFileRoute("/")({
 
 type Tab = "calendar" | "search" | "upcoming";
 
-const ACCESS_PASSWORD = "1234";
+const PASSWORD_DIGITS = 4;
 const DAY_END_MINUTES = 24 * 60;
 
 function eventTimeMinutes(event: EventRow): number {
@@ -159,6 +167,16 @@ function EchoEvents() {
   }, [qc]);
 
   useEffect(() => {
+    let cancelled = false;
+    void readEditorSession().then((authorized) => {
+      if (!cancelled) setIsAuthorized(authorized);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => setIntroVisible(false), 5000);
     return () => window.clearTimeout(timeout);
   }, []);
@@ -258,6 +276,7 @@ function EchoEvents() {
     setTab("calendar");
     setSheetOpen(false);
     setFiltersOpen(false);
+    void clearEditorSession();
   };
 
   return (
@@ -758,18 +777,23 @@ function LaunchIntro({ onSkip }: { onSkip: () => void }) {
 function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCancel: () => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const passwordProgress = Math.min(password.length, ACCESS_PASSWORD.length);
+  const [submitting, setSubmitting] = useState(false);
+  const passwordProgress = Math.min(password.length, PASSWORD_DIGITS);
   const hasInput = password.length > 0;
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (password === ACCESS_PASSWORD) {
+    setSubmitting(true);
+    try {
+      await createEditorSession(password);
       setError("");
       onAuthorized();
-      return;
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "Не вдалося відкрити редагування");
+      setPassword("");
+    } finally {
+      setSubmitting(false);
     }
-    setError("Неправильний пароль");
-    setPassword("");
   };
 
   return (
@@ -803,7 +827,7 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
         </div>
 
         <div className="mb-4 grid grid-cols-4 gap-2" aria-hidden>
-          {Array.from({ length: ACCESS_PASSWORD.length }, (_, index) => (
+          {Array.from({ length: PASSWORD_DIGITS }, (_, index) => (
             <span
               key={index}
               className={cn(
@@ -823,6 +847,7 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
           inputMode="numeric"
           autoComplete="current-password"
           value={password}
+          disabled={submitting}
           onChange={(event) => {
             setPassword(event.target.value);
             if (error) setError("");
@@ -837,9 +862,10 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
         {error ? <p className="mt-2 text-sm font-semibold text-destructive">{error}</p> : null}
         <button
           type="submit"
+          disabled={submitting || !password}
           className="gradient-bg mt-5 flex h-12 w-full items-center justify-center rounded-xl font-bold text-primary-foreground shadow-glow"
         >
-          Увійти
+          {submitting ? "Перевіряємо…" : "Увійти"}
         </button>
         <button
           type="button"

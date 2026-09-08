@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { queueEventSheetSync } from "@/lib/events-sheet-sync";
 
 export type EventRow = {
   id: string;
@@ -57,23 +56,48 @@ export async function searchEvents(term: string): Promise<EventRow[]> {
 }
 
 export async function createEvent(input: EventInput) {
-  const { data, error } = await supabase
-    .from("events")
-    .insert(input)
-    .select(COLUMNS)
-    .single<EventRow>();
-  if (error) throw error;
-  queueEventSheetSync("create", data ?? input);
+  await eventMutation("/api/events", "POST", input);
 }
 
 export async function updateEvent(id: string, input: EventInput) {
-  const { error } = await supabase.from("events").update(input).eq("id", id);
-  if (error) throw error;
-  queueEventSheetSync("update", { id, ...input });
+  await eventMutation(`/api/events/${id}`, "PUT", input);
 }
 
 export async function deleteEvent(id: string) {
-  const { error } = await supabase.from("events").delete().eq("id", id);
-  if (error) throw error;
-  queueEventSheetSync("delete", { id });
+  await eventMutation(`/api/events/${id}`, "DELETE");
+}
+
+async function eventMutation(url: string, method: "POST" | "PUT" | "DELETE", body?: EventInput) {
+  const response = await fetch(url, {
+    method,
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (response.ok) return;
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  throw new Error(payload?.error ?? "Не вдалося зберегти подію");
+}
+
+export async function createEditorSession(password: string) {
+  const response = await fetch("/api/edit-session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (response.ok) return;
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  throw new Error(payload?.error ?? "Не вдалося відкрити редагування");
+}
+
+export async function readEditorSession(): Promise<boolean> {
+  const response = await fetch("/api/edit-session");
+  if (!response.ok) return false;
+  const payload = (await response.json()) as { authorized?: unknown };
+  return payload.authorized === true;
+}
+
+export async function clearEditorSession() {
+  await fetch("/api/edit-session", { method: "DELETE" });
 }

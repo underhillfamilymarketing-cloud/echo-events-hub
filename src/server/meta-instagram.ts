@@ -1,10 +1,11 @@
 import { syncPoolEvents } from "./pool-event-sync";
+import type { RuntimeEnv } from "./runtime-env";
 
 const DEFAULT_INSTAGRAM_APP_ID = "1707908973581917";
 const DEFAULT_REDIRECT_URI = "https://events.echomarketing.agency/api/meta/instagram/callback";
 const GRAPH_VERSION = "v25.0";
 
-type MetaRuntimeEnv = {
+type MetaRuntimeEnv = RuntimeEnv & {
   META_INSTAGRAM_APP_ID?: string;
   META_INSTAGRAM_APP_SECRET?: string;
   META_INSTAGRAM_REDIRECT_URI?: string;
@@ -149,7 +150,7 @@ async function fetchInstagramCollection(
 export async function syncInstagramEvents(env: MetaRuntimeEnv) {
   const config = getConfig(env);
   if (!config.accessToken) {
-    return { configured: false, media: 0, stories: 0, result: await syncPoolEvents() };
+    return { configured: false, media: 0, stories: 0, result: await syncPoolEvents({}, env) };
   }
 
   const userId = config.userId ?? (await fetchInstagramMe(config.accessToken));
@@ -167,7 +168,7 @@ export async function syncInstagramEvents(env: MetaRuntimeEnv) {
     ).catch(() => []),
   ]);
 
-  const result = await syncPoolEvents({ instagramMedia: media, instagramStories: stories });
+  const result = await syncPoolEvents({ instagramMedia: media, instagramStories: stories }, env);
   return { configured: true, media: media.length, stories: stories.length, result };
 }
 
