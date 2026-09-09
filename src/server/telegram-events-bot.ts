@@ -13,6 +13,7 @@ import {
   type EventInput,
 } from "./events-store";
 import { runtimeValue, type RuntimeEnv } from "./runtime-env";
+import { parseNaturalTelegramEvent } from "./telegram-event-ai";
 
 type TelegramUser = {
   id: number;
@@ -55,7 +56,8 @@ type TelegramMember = {
 type DraftStep =
   "project" | "quick" | "title" | "date" | "time" | "location" | "description" | "link" | "confirm";
 
-type Draft = { step: DraftStep; payload: Partial<EventInput> };
+type DraftPayload = Partial<EventInput> & { _quickMessage?: string };
+type Draft = { step: DraftStep; payload: DraftPayload };
 
 type InlineButton = { text: string; callback_data?: string; url?: string };
 type InlineKeyboard = { inline_keyboard: InlineButton[][] };
@@ -85,20 +87,12 @@ const PROJECT_EMOJI: Record<string, string> = {
   other: "📌",
 };
 
-const QUICK_EVENT_TEMPLATE = [
-  "⚡ Швидке додавання",
+const QUICK_EVENT_PROMPT = [
+  "⚡ Опишіть подію одним повідомленням - як колезі.",
   "",
-  "Надішліть усі дані одним повідомленням:",
+  "Наприклад: «У суботу 12 вересня о 18:30 у Pool Cruce de Mares буде Sunset Party. Деталі: ...»",
   "",
-  "Назва: Назва події",
-  "Проєкт: ECHO Marketing",
-  "Дата: 12.09.2026",
-  "Час: 18:30",
-  "Локація: Локація події",
-  "Опис: Короткий опис",
-  "Посилання: https://example.com",
-  "",
-  "Обов'язкові поля: назва, проєкт і дата. Решту можна не вказувати.",
+  "Я сам розпізнаю назву, проєкт, дату, час, локацію, опис і посилання. Перед збереженням покажу готову картку.",
 ].join("\n");
 
 function config(env: RuntimeEnv): TelegramConfig {
@@ -295,7 +289,19 @@ function quickProjectId(value: string): string | null {
 }
 
 function formatQuickError(message: string): string {
-  return `⚠️ ${message}\n\n${QUICK_EVENT_TEMPLATE}`;
+  return `⚠️ ${message}\n\nНапишіть подію одним повідомленням. Можна простою мовою - без шаблону полів.`;
+}
+
+function quickClarification(fields: Array<"title" | "project" | "event_date">): string {
+  const labels = {
+    title: "назву події",
+    project: "проєкт",
+    event_date: "дату",
+  } as const;
+  const missing = fields.map((field) => labels[field]);
+  const request =
+    missing.length === 1 ? missing[0]! : `${missing.slice(0, -1).join(", ")} і ${missing.at(-1)}`;
+  return `⚠️ Щоб підготувати картку, уточніть лише ${request}. Я збережу решту з попереднього повідомлення.`;
 }
 
 function parseQuickEvent(value: string): { input: EventInput } | { error: string } {
@@ -392,7 +398,7 @@ async function getMember(
 async function getDraft(env: RuntimeEnv, chatId: number): Promise<Draft | null> {
   const draft = await getTelegramDraft(env, chatId);
   if (!draft || !draft.payload || typeof draft.payload !== "object") return null;
-  return { step: draft.step as DraftStep, payload: draft.payload };
+  return { step: draft.step as DraftStep, payload: draft.payload as DraftPayload };
 }
 
 async function saveDraft(env: RuntimeEnv, chatId: number, draft: Draft) {
@@ -410,7 +416,7 @@ async function startEvent(token: string, env: RuntimeEnv, chatId: number) {
 
 async function startQuickEvent(token: string, env: RuntimeEnv, chatId: number) {
   await saveDraft(env, chatId, { step: "quick", payload: {} });
-  await sendMessage(token, chatId, QUICK_EVENT_TEMPLATE, cancelMenu());
+  await sendMessage(token, chatId, QUICK_EVENT_PROMPT, cancelMenu());
 }
 
 async function showMainMenu(
@@ -461,9 +467,29 @@ async function handleTextStep(
   const payload = { ...draft.payload };
 
   if (draft.step === "quick") {
+    const source = payload._quickMessage
+      ? `${payload._quickMessage}\n\nУточнення користувача: ${value}`
+      : value;
+    const parsed = await parseNaturalTelegramEvent(env, source);
+    if (parsed.kind === "input") {
+      await saveDraft(env, chatId, { step: "confirm", payload: parsed.input });
+      await sendMessage(token, chatId, formatDraft(parsed.input), confirmationMenu());
+      return;
+    }
+    if (parsed.kind === "missing") {
+      await saveDraft(env, chatId, { step: "quick", payload: { _quickMessage: source } });
+      await sendMessage(token, chatId, quickClarification(parsed.fields), cancelMenu());
+      return;
+    }
+
     const result = parseQuickEvent(value);
     if ("error" in result) {
-      await sendMessage(token, chatId, formatQuickError(result.error), cancelMenu());
+      await sendMessage(
+        token,
+        chatId,
+        formatQuickError("Розпізнавання зараз не відповіло. Спробуйте ще раз через кілька секунд."),
+        cancelMenu(),
+      );
       return;
     }
     await saveDraft(env, chatId, { step: "confirm", payload: result.input });

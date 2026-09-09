@@ -1,0 +1,11 @@
+{
+  "name": "echo-events-ai-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "functions-framework --target=parseEvent"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.5"
+  }
+}
