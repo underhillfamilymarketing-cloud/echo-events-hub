@@ -116,10 +116,7 @@ async function sendMessage(
 
 function mainMenu(): InlineKeyboard {
   return {
-    inline_keyboard: [
-      [{ text: "➕ Додати подію", callback_data: "event:new" }],
-      [{ text: "Відкрити календар", url: SITE_URL }],
-    ],
+    inline_keyboard: [[{ text: "➕ Додати подію", callback_data: "event:new" }]],
   };
 }
 
@@ -258,6 +255,16 @@ async function startEvent(token: string, env: RuntimeEnv, chatId: number) {
 
 async function showMainMenu(token: string, chatId: number) {
   await sendMessage(token, chatId, "ECHO Events Bot готовий. Оберіть дію.", mainMenu());
+}
+
+async function ensureTelegramMiniApp(token: string): Promise<void> {
+  await telegramApi(token, "setChatMenuButton", {
+    menu_button: {
+      type: "web_app",
+      text: "Календар",
+      web_app: { url: SITE_URL },
+    },
+  });
 }
 
 async function ensurePrivateChat(token: string, chat: TelegramChat): Promise<boolean> {
@@ -555,12 +562,15 @@ export async function ensureTelegramWebhook(env: RuntimeEnv, origin: string): Pr
   if (!token || !webhookSecret) return false;
 
   const webhookUrl = new URL("/api/telegram/events/webhook", origin).toString();
-  await telegramApi(token, "setWebhook", {
-    url: webhookUrl,
-    secret_token: webhookSecret,
-    allowed_updates: ["message", "callback_query"],
-    drop_pending_updates: false,
-  });
+  await Promise.all([
+    telegramApi(token, "setWebhook", {
+      url: webhookUrl,
+      secret_token: webhookSecret,
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: false,
+    }),
+    ensureTelegramMiniApp(token),
+  ]);
   return true;
 }
 
