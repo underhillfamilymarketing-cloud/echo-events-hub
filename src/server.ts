@@ -5,7 +5,6 @@ import { renderErrorPage } from "./lib/error-page";
 import { handleEventMutation } from "./server/events-admin";
 import { handleEventRead } from "./server/events-read";
 import { handleEditorSession } from "./server/editor-session";
-import { handleLegacyEventsMigration } from "./server/legacy-events-migration";
 import { syncPoolEvents } from "./server/pool-event-sync";
 import { handleTelegramEventsWebhook } from "./server/telegram-events-bot";
 import {
@@ -92,9 +91,6 @@ export default {
       }
       if (url.pathname === "/api/events" || url.pathname.startsWith("/api/events/")) {
         return await handleEventMutation(request, runtimeEnv);
-      }
-      if (url.pathname === "/api/internal/migrate-legacy-events") {
-        return await handleLegacyEventsMigration(request, runtimeEnv);
       }
       if (url.pathname === "/api/telegram/events/webhook") {
         return await handleTelegramEventsWebhook(request, runtimeEnv);
