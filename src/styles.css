@@ -51,6 +51,10 @@
 
 :root {
   --radius: 0.75rem;
+  --echo-tg-content-safe-top: 0px;
+  --echo-tg-content-safe-bottom: 0px;
+  --echo-tg-content-safe-left: 0px;
+  --echo-tg-content-safe-right: 0px;
 
   --background: oklch(0.16 0.012 275);
   --foreground: oklch(0.97 0.005 280);
@@ -149,11 +153,19 @@
 }
 
 @utility pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
+  padding-bottom: max(
+    env(safe-area-inset-bottom),
+    var(--tg-content-safe-area-inset-bottom, 0px),
+    var(--echo-tg-content-safe-bottom, 0px)
+  );
 }
 
 @utility pt-safe {
-  padding-top: max(env(safe-area-inset-top), var(--tg-content-safe-area-inset-top, 0px));
+  padding-top: max(
+    env(safe-area-inset-top),
+    var(--tg-content-safe-area-inset-top, 0px),
+    var(--echo-tg-content-safe-top, 0px)
+  );
 }
 
 @utility no-scrollbar {
@@ -875,7 +887,14 @@
     }
 
     .motion-intro {
-      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(
+        2rem +
+          max(
+            env(safe-area-inset-bottom),
+            var(--tg-content-safe-area-inset-bottom, 0px),
+            var(--echo-tg-content-safe-bottom, 0px)
+          )
+      );
     }
 
     .motion-intro-title {
@@ -901,12 +920,26 @@
 
     .motion-intro-skip {
       right: 0.875rem;
-      top: calc(0.875rem + env(safe-area-inset-top));
+      top: calc(
+        0.875rem +
+          max(
+            env(safe-area-inset-top),
+            var(--tg-content-safe-area-inset-top, 0px),
+            var(--echo-tg-content-safe-top, 0px)
+          )
+      );
     }
 
     .launch-intro {
       align-items: center;
-      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(
+        2rem +
+          max(
+            env(safe-area-inset-bottom),
+            var(--tg-content-safe-area-inset-bottom, 0px),
+            var(--echo-tg-content-safe-bottom, 0px)
+          )
+      );
     }
 
     .launch-title {
@@ -916,7 +949,14 @@
 
     .launch-skip {
       right: 0.875rem;
-      top: calc(0.875rem + env(safe-area-inset-top));
+      top: calc(
+        0.875rem +
+          max(
+            env(safe-area-inset-top),
+            var(--tg-content-safe-area-inset-top, 0px),
+            var(--echo-tg-content-safe-top, 0px)
+          )
+      );
     }
 
     .launch-symbol-glass {

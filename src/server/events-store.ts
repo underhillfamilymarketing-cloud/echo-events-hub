@@ -34,6 +34,19 @@ export type TelegramDraftRecord = {
   payload: Partial<EventInput>;
 };
 
+export type TelegramAccessRequestStatus = "pending" | "approved" | "rejected";
+
+export type TelegramAccessRequestRecord = {
+  chat_id: number;
+  telegram_user_id: number;
+  username: string | null;
+  display_name: string | null;
+  status: TelegramAccessRequestStatus;
+  requested_at: string;
+  resolved_at: string | null;
+  resolved_by_chat_id: number | null;
+};
+
 type EventMetadata = {
   createdVia?: "site" | "telegram" | "pool_sync";
   telegramChatId?: number;
@@ -368,6 +381,98 @@ export async function saveTelegramMember(
       member.is_active ? 1 : 0,
     )
     .run();
+}
+
+export async function listTelegramAdmins(env: RuntimeEnv): Promise<TelegramMemberRecord[]> {
+  const rows =
+    (
+      await getDatabase(env)
+        .prepare(
+          `SELECT chat_id, telegram_user_id, username, display_name, role, is_active
+         FROM telegram_event_users
+         WHERE role = 'admin' AND is_active = 1`,
+        )
+        .all<Omit<TelegramMemberRecord, "is_active"> & { is_active: number }>()
+    ).results ?? [];
+
+  return rows.map((row) => ({ ...row, is_active: Boolean(row.is_active) }));
+}
+
+function isTelegramAccessRequestStatus(value: string): value is TelegramAccessRequestStatus {
+  return value === "pending" || value === "approved" || value === "rejected";
+}
+
+export async function getTelegramAccessRequest(
+  env: RuntimeEnv,
+  chatId: number,
+): Promise<TelegramAccessRequestRecord | null> {
+  const row = await getDatabase(env)
+    .prepare(
+      `SELECT chat_id, telegram_user_id, username, display_name, status, requested_at,
+              resolved_at, resolved_by_chat_id
+       FROM telegram_event_access_requests
+       WHERE chat_id = ? LIMIT 1`,
+    )
+    .bind(chatId)
+    .first<Omit<TelegramAccessRequestRecord, "status"> & { status: string }>();
+
+  if (!row || !isTelegramAccessRequestStatus(row.status)) return null;
+  return { ...row, status: row.status };
+}
+
+export async function createTelegramAccessRequest(
+  env: RuntimeEnv,
+  request: Pick<
+    TelegramAccessRequestRecord,
+    "chat_id" | "telegram_user_id" | "username" | "display_name"
+  >,
+): Promise<{ request: TelegramAccessRequestRecord; created: boolean }> {
+  const savedResult = await getDatabase(env)
+    .prepare(
+      `INSERT INTO telegram_event_access_requests (
+        chat_id, telegram_user_id, username, display_name, status, requested_at,
+        resolved_at, resolved_by_chat_id
+      ) VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, NULL, NULL)
+      ON CONFLICT(chat_id) DO UPDATE SET
+        telegram_user_id = excluded.telegram_user_id,
+        username = COALESCE(excluded.username, telegram_event_access_requests.username),
+        display_name = COALESCE(excluded.display_name, telegram_event_access_requests.display_name),
+        status = 'pending',
+        requested_at = CURRENT_TIMESTAMP,
+        resolved_at = NULL,
+        resolved_by_chat_id = NULL
+      WHERE telegram_event_access_requests.status <> 'pending'`,
+    )
+    .bind(request.chat_id, request.telegram_user_id, request.username, request.display_name)
+    .run();
+
+  const saved = await getTelegramAccessRequest(env, request.chat_id);
+  if (!saved) throw new Error("Не вдалося зберегти запит на доступ");
+  return { request: saved, created: savedResult.meta.changes === 1 };
+}
+
+export async function resolveTelegramAccessRequest(
+  env: RuntimeEnv,
+  chatId: number,
+  status: Exclude<TelegramAccessRequestStatus, "pending">,
+  resolvedByChatId: number,
+): Promise<TelegramAccessRequestRecord | null> {
+  const current = await getTelegramAccessRequest(env, chatId);
+  if (!current || current.status !== "pending") return null;
+
+  const result = await getDatabase(env)
+    .prepare(
+      `UPDATE telegram_event_access_requests
+       SET status = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by_chat_id = ?
+       WHERE chat_id = ? AND status = 'pending'`,
+    )
+    .bind(status, resolvedByChatId, chatId)
+    .run();
+
+  if (result.meta.changes !== 1) return null;
+
+  const resolved = await getTelegramAccessRequest(env, chatId);
+  return resolved?.status === status ? resolved : null;
 }
 
 export async function getTelegramDraft(
