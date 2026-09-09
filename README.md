@@ -5,8 +5,9 @@ Standalone ECHO Marketing events calendar.
 ## What It Does
 
 - Shows a shared calendar of ECHO events.
-- Stores events in Supabase.
-- Mirrors event changes to a Google Sheets sync webhook when configured.
+- Stores events in the Site-managed D1 database.
+- Mirrors every create, update, and delete through the configured Google Sheets sync webhook.
+- Lets approved editors add events from the protected website or Telegram bot.
 
 ## Development
 
@@ -21,12 +22,13 @@ The production build is deployed with Sites. The deployment archive flattens bui
 
 Required runtime variables:
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `EVENTS_EDIT_PASSWORD`
+- `EVENTS_SESSION_SECRET`
 
 Optional runtime variables:
 
 - `EVENTS_SHEETS_WEBHOOK_URL`
 - `EVENTS_SHEETS_WEBHOOK_TOKEN`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `TELEGRAM_BOOTSTRAP_CHAT_ID`

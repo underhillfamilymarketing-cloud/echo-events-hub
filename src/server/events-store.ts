@@ -54,8 +54,6 @@ type D1Database = {
   batch(statements: D1Statement[]): Promise<D1Result[]>;
 };
 
-type LegacyEvent = StoredEvent & { created_at?: string | null; updated_at?: string | null };
-
 const EVENT_COLUMNS = "id, title, project, event_date, event_time, location, description, link";
 const PROJECT_IDS = new Set(PROJECTS.map((project) => project.id));
 
@@ -412,93 +410,4 @@ export async function clearTelegramDraft(env: RuntimeEnv, chatId: number): Promi
     .prepare("DELETE FROM telegram_event_drafts WHERE chat_id = ?")
     .bind(chatId)
     .run();
-}
-
-function asLegacyEvent(value: unknown): LegacyEvent | null {
-  if (!isRecord(value) || typeof value["id"] !== "string") return null;
-  try {
-    const legacyTime = value["event_time"];
-    const normalizedTime =
-      typeof legacyTime === "string"
-        ? (legacyTime.match(/^\d{2}:\d{2}/)?.[0] ?? legacyTime)
-        : legacyTime;
-    const input = parseEventInput({ ...value, event_time: normalizedTime });
-    return {
-      id: value["id"],
-      ...input,
-      created_at: typeof value["created_at"] === "string" ? value["created_at"] : null,
-      updated_at: typeof value["updated_at"] === "string" ? value["updated_at"] : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchLegacyBatch(env: RuntimeEnv, offset: number): Promise<unknown[]> {
-  const url = runtimeValue(env, "SUPABASE_URL");
-  const key = runtimeValue(env, "SUPABASE_PUBLISHABLE_KEY");
-  if (!url || !key) throw new Error("Резервне джерело подій недоступне");
-
-  const source = new URL("/rest/v1/events", url);
-  source.searchParams.set(
-    "select",
-    "id,title,project,event_date,event_time,location,description,link,created_at,updated_at",
-  );
-  source.searchParams.set("order", "id.asc");
-  source.searchParams.set("limit", "1000");
-  source.searchParams.set("offset", String(offset));
-  const response = await fetch(source, { headers: { apikey: key } });
-  if (!response.ok) throw new Error("Не вдалося отримати резервну копію подій");
-  const payload = await response.json();
-  return Array.isArray(payload) ? payload : [];
-}
-
-export async function importLegacyEvents(env: RuntimeEnv): Promise<{
-  scanned: number;
-  imported: number;
-  existing: number;
-  skipped: number;
-}> {
-  const db = getDatabase(env);
-  const result = { scanned: 0, imported: 0, existing: 0, skipped: 0 };
-  let offset = 0;
-
-  for (;;) {
-    const batch = await fetchLegacyBatch(env, offset);
-    if (!batch.length) break;
-    result.scanned += batch.length;
-    for (const value of batch) {
-      const event = asLegacyEvent(value);
-      if (!event) {
-        result.skipped += 1;
-        continue;
-      }
-      const write = await db
-        .prepare(
-          `INSERT OR IGNORE INTO events (
-            id, title, project, event_date, event_time, location, description, link,
-            created_via, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'site', COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
-        )
-        .bind(
-          event.id,
-          event.title,
-          event.project,
-          event.event_date,
-          event.event_time,
-          event.location,
-          event.description,
-          event.link,
-          event.created_at,
-          event.updated_at,
-        )
-        .run();
-      if (changes(write)) result.imported += 1;
-      else result.existing += 1;
-    }
-    if (batch.length < 1000) break;
-    offset += batch.length;
-  }
-
-  return result;
 }
