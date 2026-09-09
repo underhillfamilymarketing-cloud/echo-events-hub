@@ -1,8 +1,12 @@
 import { PROJECTS, getProject } from "@/lib/projects";
 import {
+  clearTelegramDraft,
   createEventRecord,
-  createEventsAdminClient,
+  getTelegramDraft,
+  getTelegramMember,
   parseEventInput,
+  saveTelegramDraft,
+  saveTelegramMember,
   type EventInput,
 } from "./events-store";
 import { runtimeValue, type RuntimeEnv } from "./runtime-env";
@@ -54,9 +58,9 @@ type InlineButton = { text: string; callback_data?: string; url?: string };
 type InlineKeyboard = { inline_keyboard: InlineButton[][] };
 
 type TelegramConfig = {
-  token?: string;
-  webhookSecret?: string;
-  bootstrapChatId?: string;
+  token: string | undefined;
+  webhookSecret: string | undefined;
+  bootstrapChatId: string | undefined;
 };
 
 const SITE_URL = "https://events.echomarketing.agency/";
@@ -181,7 +185,7 @@ function parseDate(value: string): string | null {
 function parseTime(value: string): string | null {
   const match = value.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
   if (!match) return null;
-  return `${match[1].padStart(2, "0")}:${match[2]}`;
+  return `${match[1]!.padStart(2, "0")}:${match[2]!}`;
 }
 
 function parseUrl(value: string): string | null {
@@ -215,14 +219,8 @@ async function getMember(
   chatId: number,
   user: TelegramUser | undefined,
 ): Promise<TelegramMember | null> {
-  const client = createEventsAdminClient(env);
-  const { data, error } = await client
-    .from("telegram_event_users")
-    .select("chat_id,telegram_user_id,username,display_name,role,is_active")
-    .eq("chat_id", chatId)
-    .maybeSingle();
-  if (error) throw error;
-  if (data) return data as TelegramMember;
+  const existing = await getTelegramMember(env, chatId);
+  if (existing) return existing;
 
   const bootstrapChatId = config(env).bootstrapChatId;
   if (!bootstrapChatId || bootstrapChatId !== String(chatId)) return null;
@@ -235,39 +233,22 @@ async function getMember(
     role: "admin" as const,
     is_active: true,
   };
-  const { error: insertError } = await client.from("telegram_event_users").insert(member);
-  if (insertError) throw insertError;
+  await saveTelegramMember(env, member);
   return member;
 }
 
 async function getDraft(env: RuntimeEnv, chatId: number): Promise<Draft | null> {
-  const client = createEventsAdminClient(env);
-  const { data, error } = await client
-    .from("telegram_event_drafts")
-    .select("step,payload")
-    .eq("chat_id", chatId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data || typeof data.step !== "string" || !data.payload || typeof data.payload !== "object")
-    return null;
-  return { step: data.step as DraftStep, payload: data.payload as Partial<EventInput> };
+  const draft = await getTelegramDraft(env, chatId);
+  if (!draft || !draft.payload || typeof draft.payload !== "object") return null;
+  return { step: draft.step as DraftStep, payload: draft.payload };
 }
 
 async function saveDraft(env: RuntimeEnv, chatId: number, draft: Draft) {
-  const client = createEventsAdminClient(env);
-  const { error } = await client
-    .from("telegram_event_drafts")
-    .upsert(
-      { chat_id: chatId, step: draft.step, payload: draft.payload },
-      { onConflict: "chat_id" },
-    );
-  if (error) throw error;
+  await saveTelegramDraft(env, chatId, draft);
 }
 
 async function clearDraft(env: RuntimeEnv, chatId: number) {
-  const client = createEventsAdminClient(env);
-  const { error } = await client.from("telegram_event_drafts").delete().eq("chat_id", chatId);
-  if (error) throw error;
+  await clearTelegramDraft(env, chatId);
 }
 
 async function startEvent(token: string, env: RuntimeEnv, chatId: number) {
@@ -549,17 +530,14 @@ async function handleMessage(
       return;
     }
     const targetChatId = Number(allow[1]);
-    const client = createEventsAdminClient(env);
-    const { error } = await client.from("telegram_event_users").upsert(
-      {
-        chat_id: targetChatId,
-        telegram_user_id: targetChatId,
-        role: "editor",
-        is_active: true,
-      },
-      { onConflict: "chat_id" },
-    );
-    if (error) throw error;
+    await saveTelegramMember(env, {
+      chat_id: targetChatId,
+      telegram_user_id: targetChatId,
+      username: null,
+      display_name: null,
+      role: "editor",
+      is_active: true,
+    });
     await sendMessage(token, chatId, `Редактора з ID ${targetChatId} додано.`);
     return;
   }

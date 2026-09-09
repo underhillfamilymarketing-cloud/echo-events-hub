@@ -16,7 +16,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   clearEditorSession,
   createEditorSession,
@@ -133,15 +132,10 @@ function EchoEvents() {
   });
 
   useEffect(() => {
-    const channel = supabase
-      .channel("events-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
-        void qc.invalidateQueries();
-      })
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    const interval = window.setInterval(() => {
+      void qc.invalidateQueries();
+    }, 15_000);
+    return () => window.clearInterval(interval);
   }, [qc]);
 
   useEffect(() => {
@@ -159,7 +153,7 @@ function EchoEvents() {
         void qc.invalidateQueries();
       })
       .catch(() => {
-        // Pool sync is best effort; the calendar remains available from Supabase.
+        // Pool sync is best effort; saved calendar data remains available.
       });
     return () => {
       cancelled = true;
@@ -810,7 +804,7 @@ function AuthGate({ onAuthorized, onCancel }: { onAuthorized: () => void; onCanc
             className={cn(
               "auth-lock gradient-bg grid size-12 place-items-center rounded-2xl text-primary-foreground shadow-glow",
               hasInput ? "auth-lock-active" : "",
-              passwordProgress === ACCESS_PASSWORD.length ? "auth-lock-ready" : "",
+              passwordProgress === PASSWORD_DIGITS ? "auth-lock-ready" : "",
             )}
           >
             <span className="auth-lock-ring" aria-hidden />

@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export type EventRow = {
   id: string;
   title: string;
@@ -13,46 +11,29 @@ export type EventRow = {
 
 export type EventInput = Omit<EventRow, "id">;
 
-const COLUMNS = "id, title, project, event_date, event_time, location, description, link";
+type EventsResponse = { events?: EventRow[]; error?: string };
+
+async function readEvents(params: URLSearchParams): Promise<EventRow[]> {
+  const response = await fetch(`/api/events?${params.toString()}`);
+  const payload = (await response.json().catch(() => null)) as EventsResponse | null;
+  if (!response.ok) throw new Error(payload?.error ?? "Не вдалося завантажити події");
+  return payload?.events ?? [];
+}
 
 export async function fetchEventsInRange(from: string, to: string): Promise<EventRow[]> {
-  const { data, error } = await supabase
-    .from("events")
-    .select(COLUMNS)
-    .gte("event_date", from)
-    .lte("event_date", to)
-    .order("event_date", { ascending: true })
-    .order("event_time", { ascending: true, nullsFirst: true })
-    .returns<EventRow[]>();
-  if (error) throw error;
-  return data ?? [];
+  return readEvents(new URLSearchParams({ from, to }));
 }
 
 export async function fetchUpcomingEvents(fromDate: string, limit = 8): Promise<EventRow[]> {
-  const { data, error } = await supabase
-    .from("events")
-    .select(COLUMNS)
-    .gte("event_date", fromDate)
-    .order("event_date", { ascending: true })
-    .order("event_time", { ascending: true, nullsFirst: false })
-    .limit(Math.max(limit * 5, 50))
-    .returns<EventRow[]>();
-  if (error) throw error;
-  return data ?? [];
+  return readEvents(
+    new URLSearchParams({ upcomingFrom: fromDate, limit: String(Math.max(limit * 5, 50)) }),
+  );
 }
 
 export async function searchEvents(term: string): Promise<EventRow[]> {
-  const q = term.trim().replace(/[%,()]/g, " ");
-  if (!q) return [];
-  const { data, error } = await supabase
-    .from("events")
-    .select(COLUMNS)
-    .or(`title.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`)
-    .order("event_date", { ascending: true })
-    .limit(100)
-    .returns<EventRow[]>();
-  if (error) throw error;
-  return data ?? [];
+  const query = term.trim();
+  if (!query) return [];
+  return readEvents(new URLSearchParams({ q: query }));
 }
 
 export async function createEvent(input: EventInput) {
@@ -68,11 +49,12 @@ export async function deleteEvent(id: string) {
 }
 
 async function eventMutation(url: string, method: "POST" | "PUT" | "DELETE", body?: EventInput) {
-  const response = await fetch(url, {
-    method,
-    headers: body ? { "content-type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const init: RequestInit = { method };
+  if (body) {
+    init.headers = { "content-type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const response = await fetch(url, init);
   if (response.ok) return;
 
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;

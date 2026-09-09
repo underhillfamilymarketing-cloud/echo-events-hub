@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { PROJECTS } from "@/lib/projects";
 import { mirrorEventToSheet, type SheetSyncStatus } from "./events-sheet-mirror";
 import { runtimeValue, type RuntimeEnv } from "./runtime-env";
@@ -21,34 +20,51 @@ export type EventWriteResult = {
   deduplicated: boolean;
 };
 
+export type TelegramMemberRecord = {
+  chat_id: number;
+  telegram_user_id: number;
+  username: string | null;
+  display_name: string | null;
+  role: "admin" | "editor";
+  is_active: boolean;
+};
+
+export type TelegramDraftRecord = {
+  step: string;
+  payload: Partial<EventInput>;
+};
+
 type EventMetadata = {
-  createdVia?: "site" | "telegram";
+  createdVia?: "site" | "telegram" | "pool_sync";
   telegramChatId?: number;
   telegramUpdateId?: number;
 };
 
-const EVENT_COLUMNS = "id,title,project,event_date,event_time,location,description,link";
+type D1Result = { results?: unknown[]; meta?: { changes?: number } };
+
+type D1Statement = {
+  bind(...values: unknown[]): D1Statement;
+  all<T = unknown>(): Promise<{ results?: T[] }>;
+  first<T = unknown>(): Promise<T | null>;
+  run(): Promise<D1Result>;
+};
+
+type D1Database = {
+  prepare(query: string): D1Statement;
+  batch(statements: D1Statement[]): Promise<D1Result[]>;
+};
+
+type LegacyEvent = StoredEvent & { created_at?: string | null; updated_at?: string | null };
+
+const EVENT_COLUMNS = "id, title, project, event_date, event_time, location, description, link";
 const PROJECT_IDS = new Set(PROJECTS.map((project) => project.id));
 
-function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
-}
-
-function createSupabaseFetch(supabaseKey: string): typeof fetch {
-  return (input, init) => {
-    const headers = new Headers(
-      typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
-    );
-    if (init?.headers) new Headers(init.headers).forEach((value, key) => headers.set(key, value));
-    if (
-      isNewSupabaseApiKey(supabaseKey) &&
-      headers.get("Authorization") === `Bearer ${supabaseKey}`
-    ) {
-      headers.delete("Authorization");
-    }
-    headers.set("apikey", supabaseKey);
-    return fetch(input, { ...init, headers });
-  };
+function getDatabase(env: RuntimeEnv): D1Database {
+  const database = env["DB"];
+  if (!database || typeof database !== "object" || !("prepare" in database)) {
+    throw new Error("Серверне сховище календаря ще не налаштоване");
+  }
+  return database as D1Database;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,16 +99,31 @@ function validUrl(value: string): boolean {
   }
 }
 
+function eventId(): string {
+  return crypto.randomUUID();
+}
+
+function changes(result: D1Result): number {
+  return Number(result.meta?.changes ?? 0);
+}
+
+async function eventById(env: RuntimeEnv, id: string): Promise<StoredEvent | null> {
+  return getDatabase(env)
+    .prepare(`SELECT ${EVENT_COLUMNS} FROM events WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first<StoredEvent>();
+}
+
 export function parseEventInput(value: unknown): EventInput {
   if (!isRecord(value)) throw new Error("Некоректні дані події");
 
-  const title = optionalText(value.title, 140);
-  const project = optionalText(value.project, 80);
-  const eventDate = optionalText(value.event_date, 10);
-  const eventTime = optionalText(value.event_time, 5);
-  const location = optionalText(value.location, 200);
-  const description = optionalText(value.description, 2_000);
-  const link = optionalText(value.link, 500);
+  const title = optionalText(value["title"], 140);
+  const project = optionalText(value["project"], 80);
+  const eventDate = optionalText(value["event_date"], 10);
+  const eventTime = optionalText(value["event_time"], 5);
+  const location = optionalText(value["location"], 200);
+  const description = optionalText(value["description"], 2_000);
+  const link = optionalText(value["link"], 500);
 
   if (!title) throw new Error("Вкажіть назву події");
   if (!project || !PROJECT_IDS.has(project)) throw new Error("Оберіть коректний проєкт");
@@ -111,28 +142,101 @@ export function parseEventInput(value: unknown): EventInput {
   };
 }
 
-export function createEventsAdminClient(env: RuntimeEnv) {
-  const url = runtimeValue(env, "SUPABASE_URL");
-  const serviceRoleKey = runtimeValue(env, "SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceRoleKey) {
-    throw new Error("Серверний доступ до календаря ще не налаштований");
-  }
+export async function listEventsInRange(
+  env: RuntimeEnv,
+  from: string,
+  to: string,
+): Promise<StoredEvent[]> {
+  return (
+    (
+      await getDatabase(env)
+        .prepare(
+          `SELECT ${EVENT_COLUMNS} FROM events
+         WHERE event_date >= ? AND event_date <= ?
+         ORDER BY event_date ASC, event_time IS NULL ASC, event_time ASC, id ASC`,
+        )
+        .bind(from, to)
+        .all<StoredEvent>()
+    ).results ?? []
+  );
+}
 
-  return createClient(url, serviceRoleKey, {
-    global: { fetch: createSupabaseFetch(serviceRoleKey) },
-    auth: { autoRefreshToken: false, persistSession: false, storage: undefined },
-  });
+export async function listUpcomingEvents(
+  env: RuntimeEnv,
+  from: string,
+  limit: number,
+): Promise<StoredEvent[]> {
+  return (
+    (
+      await getDatabase(env)
+        .prepare(
+          `SELECT ${EVENT_COLUMNS} FROM events
+         WHERE event_date >= ?
+         ORDER BY event_date ASC, event_time IS NULL ASC, event_time ASC, id ASC
+         LIMIT ?`,
+        )
+        .bind(from, Math.max(1, Math.min(limit, 200)))
+        .all<StoredEvent>()
+    ).results ?? []
+  );
+}
+
+export async function searchStoredEvents(env: RuntimeEnv, term: string): Promise<StoredEvent[]> {
+  const query = term.trim().slice(0, 140);
+  if (!query) return [];
+  const like = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+  return (
+    (
+      await getDatabase(env)
+        .prepare(
+          `SELECT ${EVENT_COLUMNS} FROM events
+         WHERE title LIKE ? ESCAPE '\\' COLLATE NOCASE
+            OR location LIKE ? ESCAPE '\\' COLLATE NOCASE
+            OR description LIKE ? ESCAPE '\\' COLLATE NOCASE
+         ORDER BY event_date ASC, event_time IS NULL ASC, event_time ASC, id ASC
+         LIMIT 100`,
+        )
+        .bind(like, like, like)
+        .all<StoredEvent>()
+    ).results ?? []
+  );
+}
+
+export async function findEventByProjectLink(
+  env: RuntimeEnv,
+  project: string,
+  link: string,
+): Promise<StoredEvent | null> {
+  return getDatabase(env)
+    .prepare(`SELECT ${EVENT_COLUMNS} FROM events WHERE project = ? AND link = ? LIMIT 1`)
+    .bind(project, link)
+    .first<StoredEvent>();
+}
+
+export async function listEventsByProjectDate(
+  env: RuntimeEnv,
+  project: string,
+  eventDate: string,
+): Promise<StoredEvent[]> {
+  return (
+    (
+      await getDatabase(env)
+        .prepare(
+          `SELECT ${EVENT_COLUMNS} FROM events
+         WHERE project = ? AND event_date = ?
+         ORDER BY event_time IS NULL ASC, event_time ASC, id ASC`,
+        )
+        .bind(project, eventDate)
+        .all<StoredEvent>()
+    ).results ?? []
+  );
 }
 
 async function findTelegramEvent(env: RuntimeEnv, updateId: number): Promise<StoredEvent | null> {
-  const client = createEventsAdminClient(env);
-  const { data, error } = await client
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .eq("telegram_update_id", updateId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as StoredEvent | null) ?? null;
+  return getDatabase(env)
+    .prepare(`SELECT ${EVENT_COLUMNS} FROM events WHERE telegram_update_id = ? LIMIT 1`)
+    .bind(updateId)
+    .first<StoredEvent>();
 }
 
 export async function createEventRecord(
@@ -140,27 +244,45 @@ export async function createEventRecord(
   input: EventInput,
   metadata: EventMetadata = {},
 ): Promise<EventWriteResult> {
-  const client = createEventsAdminClient(env);
-  const { data, error } = await client
-    .from("events")
-    .insert({
-      ...input,
-      created_via: metadata.createdVia ?? "site",
-      created_by_telegram_chat_id: metadata.telegramChatId ?? null,
-      telegram_update_id: metadata.telegramUpdateId ?? null,
-    })
-    .select(EVENT_COLUMNS)
-    .single();
+  if (metadata.telegramUpdateId != null) {
+    const existing = await findTelegramEvent(env, metadata.telegramUpdateId);
+    if (existing) return { event: existing, sheetSync: "synced", deduplicated: true };
+  }
 
-  if (error) {
-    if (error.code === "23505" && metadata.telegramUpdateId != null) {
-      const event = await findTelegramEvent(env, metadata.telegramUpdateId);
-      if (event) return { event, sheetSync: "synced", deduplicated: true };
+  const db = getDatabase(env);
+  const id = eventId();
+  try {
+    await db
+      .prepare(
+        `INSERT INTO events (
+          id, title, project, event_date, event_time, location, description, link,
+          created_via, created_by_telegram_chat_id, telegram_update_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.title,
+        input.project,
+        input.event_date,
+        input.event_time,
+        input.location,
+        input.description,
+        input.link,
+        metadata.createdVia ?? "site",
+        metadata.telegramChatId ?? null,
+        metadata.telegramUpdateId ?? null,
+      )
+      .run();
+  } catch (error) {
+    if (metadata.telegramUpdateId != null) {
+      const existing = await findTelegramEvent(env, metadata.telegramUpdateId);
+      if (existing) return { event: existing, sheetSync: "synced", deduplicated: true };
     }
     throw error;
   }
 
-  const event = data as StoredEvent;
+  const event = await eventById(env, id);
+  if (!event) throw new Error("Подію не вдалося зберегти");
   const sheetSync = await mirrorEventToSheet("create", event, env);
   return { event, sheetSync, deduplicated: false };
 }
@@ -170,16 +292,28 @@ export async function updateEventRecord(
   eventId: string,
   input: EventInput,
 ): Promise<EventWriteResult> {
-  const client = createEventsAdminClient(env);
-  const { data, error } = await client
-    .from("events")
-    .update(input)
-    .eq("id", eventId)
-    .select(EVENT_COLUMNS)
-    .single();
-  if (error) throw error;
+  const result = await getDatabase(env)
+    .prepare(
+      `UPDATE events
+       SET title = ?, project = ?, event_date = ?, event_time = ?, location = ?,
+           description = ?, link = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+    )
+    .bind(
+      input.title,
+      input.project,
+      input.event_date,
+      input.event_time,
+      input.location,
+      input.description,
+      input.link,
+      eventId,
+    )
+    .run();
+  if (!changes(result)) throw new Error("Подію не знайдено");
 
-  const event = data as StoredEvent;
+  const event = await eventById(env, eventId);
+  if (!event) throw new Error("Подію не знайдено");
   const sheetSync = await mirrorEventToSheet("update", event, env);
   return { event, sheetSync, deduplicated: false };
 }
@@ -188,19 +322,178 @@ export async function deleteEventRecord(
   env: RuntimeEnv,
   eventId: string,
 ): Promise<EventWriteResult> {
-  const client = createEventsAdminClient(env);
-  const { data: existing, error: lookupError } = await client
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .eq("id", eventId)
-    .maybeSingle();
-  if (lookupError) throw lookupError;
-  if (!existing) throw new Error("Подію не знайдено");
-
-  const { error } = await client.from("events").delete().eq("id", eventId);
-  if (error) throw error;
-
-  const event = existing as StoredEvent;
+  const event = await eventById(env, eventId);
+  if (!event) throw new Error("Подію не знайдено");
+  await getDatabase(env).prepare("DELETE FROM events WHERE id = ?").bind(eventId).run();
   const sheetSync = await mirrorEventToSheet("delete", event, env);
   return { event, sheetSync, deduplicated: false };
+}
+
+export async function getTelegramMember(
+  env: RuntimeEnv,
+  chatId: number,
+): Promise<TelegramMemberRecord | null> {
+  const row = await getDatabase(env)
+    .prepare(
+      `SELECT chat_id, telegram_user_id, username, display_name, role, is_active
+       FROM telegram_event_users WHERE chat_id = ? LIMIT 1`,
+    )
+    .bind(chatId)
+    .first<Omit<TelegramMemberRecord, "is_active"> & { is_active: number }>();
+  if (!row || (row.role !== "admin" && row.role !== "editor")) return null;
+  return { ...row, is_active: Boolean(row.is_active) };
+}
+
+export async function saveTelegramMember(
+  env: RuntimeEnv,
+  member: TelegramMemberRecord,
+): Promise<void> {
+  await getDatabase(env)
+    .prepare(
+      `INSERT INTO telegram_event_users (
+        chat_id, telegram_user_id, username, display_name, role, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(chat_id) DO UPDATE SET
+        telegram_user_id = excluded.telegram_user_id,
+        username = COALESCE(excluded.username, telegram_event_users.username),
+        display_name = COALESCE(excluded.display_name, telegram_event_users.display_name),
+        role = excluded.role,
+        is_active = excluded.is_active,
+        updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      member.chat_id,
+      member.telegram_user_id,
+      member.username,
+      member.display_name,
+      member.role,
+      member.is_active ? 1 : 0,
+    )
+    .run();
+}
+
+export async function getTelegramDraft(
+  env: RuntimeEnv,
+  chatId: number,
+): Promise<TelegramDraftRecord | null> {
+  const row = await getDatabase(env)
+    .prepare("SELECT step, payload FROM telegram_event_drafts WHERE chat_id = ? LIMIT 1")
+    .bind(chatId)
+    .first<{ step: string; payload: string }>();
+  if (!row || typeof row.step !== "string" || typeof row.payload !== "string") return null;
+  try {
+    const payload = JSON.parse(row.payload);
+    return isRecord(payload) ? { step: row.step, payload: payload as Partial<EventInput> } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveTelegramDraft(
+  env: RuntimeEnv,
+  chatId: number,
+  draft: TelegramDraftRecord,
+): Promise<void> {
+  await getDatabase(env)
+    .prepare(
+      `INSERT INTO telegram_event_drafts (chat_id, step, payload)
+       VALUES (?, ?, ?)
+       ON CONFLICT(chat_id) DO UPDATE SET
+         step = excluded.step,
+         payload = excluded.payload,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(chatId, draft.step, JSON.stringify(draft.payload))
+    .run();
+}
+
+export async function clearTelegramDraft(env: RuntimeEnv, chatId: number): Promise<void> {
+  await getDatabase(env)
+    .prepare("DELETE FROM telegram_event_drafts WHERE chat_id = ?")
+    .bind(chatId)
+    .run();
+}
+
+function asLegacyEvent(value: unknown): LegacyEvent | null {
+  if (!isRecord(value) || typeof value["id"] !== "string") return null;
+  try {
+    const input = parseEventInput(value);
+    return {
+      id: value["id"],
+      ...input,
+      created_at: typeof value["created_at"] === "string" ? value["created_at"] : null,
+      updated_at: typeof value["updated_at"] === "string" ? value["updated_at"] : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLegacyBatch(env: RuntimeEnv, offset: number): Promise<unknown[]> {
+  const url = runtimeValue(env, "SUPABASE_URL");
+  const key = runtimeValue(env, "SUPABASE_PUBLISHABLE_KEY");
+  if (!url || !key) throw new Error("Резервне джерело подій недоступне");
+
+  const source = new URL("/rest/v1/events", url);
+  source.searchParams.set(
+    "select",
+    "id,title,project,event_date,event_time,location,description,link,created_at,updated_at",
+  );
+  source.searchParams.set("order", "id.asc");
+  source.searchParams.set("limit", "1000");
+  source.searchParams.set("offset", String(offset));
+  const response = await fetch(source, { headers: { apikey: key } });
+  if (!response.ok) throw new Error("Не вдалося отримати резервну копію подій");
+  const payload = await response.json();
+  return Array.isArray(payload) ? payload : [];
+}
+
+export async function importLegacyEvents(env: RuntimeEnv): Promise<{
+  scanned: number;
+  imported: number;
+  existing: number;
+  skipped: number;
+}> {
+  const db = getDatabase(env);
+  const result = { scanned: 0, imported: 0, existing: 0, skipped: 0 };
+  let offset = 0;
+
+  for (;;) {
+    const batch = await fetchLegacyBatch(env, offset);
+    if (!batch.length) break;
+    result.scanned += batch.length;
+    for (const value of batch) {
+      const event = asLegacyEvent(value);
+      if (!event) {
+        result.skipped += 1;
+        continue;
+      }
+      const write = await db
+        .prepare(
+          `INSERT OR IGNORE INTO events (
+            id, title, project, event_date, event_time, location, description, link,
+            created_via, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'site', COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
+        )
+        .bind(
+          event.id,
+          event.title,
+          event.project,
+          event.event_date,
+          event.event_time,
+          event.location,
+          event.description,
+          event.link,
+          event.created_at,
+          event.updated_at,
+        )
+        .run();
+      if (changes(write)) result.imported += 1;
+      else result.existing += 1;
+    }
+    if (batch.length < 1000) break;
+    offset += batch.length;
+  }
+
+  return result;
 }

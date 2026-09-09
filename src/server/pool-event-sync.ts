@@ -1,4 +1,9 @@
-import { createEventsAdminClient } from "./events-store";
+import {
+  createEventRecord,
+  findEventByProjectLink,
+  listEventsByProjectDate,
+  updateEventRecord,
+} from "./events-store";
 import type { RuntimeEnv } from "./runtime-env";
 
 const POOL_HOME_URL = "https://pool.if.ua/";
@@ -40,8 +45,6 @@ type PoolSyncSources = {
   instagramMedia?: InstagramMediaCandidate[];
   instagramStories?: InstagramMediaCandidate[];
 };
-
-type EventsClient = ReturnType<typeof createEventsAdminClient>;
 
 type ExistingEvent = {
   id: string;
@@ -320,32 +323,21 @@ function isLikelySameEvent(left: string, right: string): boolean {
 }
 
 async function findExistingEvent(
-  client: EventsClient,
+  env: RuntimeEnv,
   event: ParsedEvent,
 ): Promise<ExistingEvent | null> {
-  const { data: exact, error: exactError } = await client
-    .from("events")
-    .select("id,title,event_date,event_time,location,description,link")
-    .eq("project", "pool")
-    .eq("link", event.link)
-    .maybeSingle();
-  if (exactError) throw exactError;
+  const exact = await findEventByProjectLink(env, "pool", event.link);
   if (exact) return exact;
 
-  const { data: sameDate, error: dateError } = await client
-    .from("events")
-    .select("id,title,event_date,event_time,location,description,link")
-    .eq("project", "pool")
-    .eq("event_date", event.event_date);
-  if (dateError) throw dateError;
-  return sameDate?.find((candidate) => isLikelySameEvent(candidate.title, event.title)) ?? null;
+  const sameDate = await listEventsByProjectDate(env, "pool", event.event_date);
+  return sameDate.find((candidate) => isLikelySameEvent(candidate.title, event.title)) ?? null;
 }
 
 function mergeSocialEvent(existing: ExistingEvent | null, event: ParsedEvent) {
   if (!existing || existing.link === event.link) return event;
   const replaceSyntheticLink =
-    existing.link.includes("instagram.com/pool_cruce_de_mares/#event-") ||
-    existing.link.includes("instagram.com/pool_cruce_de_mares/#meta-");
+    existing.link?.includes("instagram.com/pool_cruce_de_mares/#event-") ||
+    existing.link?.includes("instagram.com/pool_cruce_de_mares/#meta-");
   return {
     ...event,
     title: existing.title.length >= event.title.length ? existing.title : event.title,
@@ -356,14 +348,11 @@ function mergeSocialEvent(existing: ExistingEvent | null, event: ParsedEvent) {
   };
 }
 
-async function syncOneEvent(client: EventsClient, event: ParsedEvent, result: PoolSyncResult) {
-  const existing = await findExistingEvent(client, event);
+async function syncOneEvent(env: RuntimeEnv, event: ParsedEvent, result: PoolSyncResult) {
+  const existing = await findExistingEvent(env, event);
   if (!existing) {
     const { source: _source, ...row } = event;
-    const { error } = await client
-      .from("events")
-      .insert({ ...row, project: "pool", created_via: "pool_sync" });
-    if (error) throw error;
+    await createEventRecord(env, { ...row, project: "pool" }, { createdVia: "pool_sync" });
     result.inserted += 1;
     return;
   }
@@ -382,13 +371,12 @@ async function syncOneEvent(client: EventsClient, event: ParsedEvent, result: Po
   }
 
   const { source: _source, ...row } = update;
-  const { error } = await client.from("events").update(row).eq("id", existing.id);
-  if (error) throw error;
+  await updateEventRecord(env, existing.id, { ...row, project: "pool" });
   result.updated += 1;
 }
 
 async function performSync(
-  client: EventsClient,
+  env: RuntimeEnv,
   sources: PoolSyncSources = {},
 ): Promise<PoolSyncResult> {
   const result: PoolSyncResult = {
@@ -458,7 +446,7 @@ async function performSync(
       result.skipped += 1;
       continue;
     }
-    await syncOneEvent(client, event, result);
+    await syncOneEvent(env, event, result);
   }
 
   lastSyncAt = Date.now();
@@ -481,7 +469,7 @@ export function syncPoolEvents(
     });
   }
 
-  activeSync = performSync(createEventsAdminClient(env), sources).finally(() => {
+  activeSync = performSync(env, sources).finally(() => {
     activeSync = undefined;
   });
   return activeSync;
