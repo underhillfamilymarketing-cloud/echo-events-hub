@@ -98,19 +98,20 @@ function parseUrl(value: string | null): string | null {
   }
 }
 
-function projectId(value: string | null): string | null {
-  if (!value) return null;
-  const normalized = normalize(value);
-  for (const project of PROJECTS) {
-    const candidates = [
-      project.id,
-      project.name,
-      project.short,
-      ...(PROJECT_ALIASES[project.id] ?? []),
-    ];
-    if (candidates.some((candidate) => normalize(candidate) === normalized)) return project.id;
-  }
-  return null;
+function projectCandidates(project: (typeof PROJECTS)[number]): string[] {
+  return [project.id, project.name, project.short, ...(PROJECT_ALIASES[project.id] ?? [])];
+}
+
+function explicitProjectId(message: string): string | null {
+  const normalizedMessage = ` ${normalize(message)} `;
+  const matches = PROJECTS.filter((project) =>
+    projectCandidates(project).some((candidate) => {
+      const normalizedCandidate = normalize(candidate);
+      return normalizedCandidate && normalizedMessage.includes(` ${normalizedCandidate} `);
+    }),
+  ).map((project) => project.id);
+
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 function currentKyivDate(): string {
@@ -182,16 +183,17 @@ function parsedModelEvent(value: JsonObject): ParsedModelEvent {
   };
 }
 
-function requiredFields(event: ParsedModelEvent): RequiredEventField[] {
+function requiredFields(event: ParsedModelEvent, message: string): RequiredEventField[] {
   const missing = new Set(event.missing);
   if (!event.title) missing.add("title");
-  if (!projectId(event.project)) missing.add("project");
+  if (explicitProjectId(message)) missing.delete("project");
+  else missing.add("project");
   if (!parseDate(event.event_date)) missing.add("event_date");
   return REQUIRED_FIELDS.filter((field) => missing.has(field));
 }
 
-function modelInput(event: ParsedModelEvent): EventInput | null {
-  const project = projectId(event.project);
+function modelInput(event: ParsedModelEvent, message: string): EventInput | null {
+  const project = explicitProjectId(message);
   const eventDate = parseDate(event.event_date);
   if (!event.title || !project || !eventDate) return null;
   try {
@@ -246,9 +248,9 @@ export async function parseNaturalTelegramEvent(
   const parsed = await requestModel(env, message);
   if (!parsed) return { kind: "unavailable" };
 
-  const missing = requiredFields(parsed);
+  const missing = requiredFields(parsed, message);
   if (missing.length > 0) return { kind: "missing", fields: missing };
 
-  const input = modelInput(parsed);
+  const input = modelInput(parsed, message);
   return input ? { kind: "input", input } : { kind: "unavailable" };
 }
