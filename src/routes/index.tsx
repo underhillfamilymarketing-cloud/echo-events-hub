@@ -39,6 +39,7 @@ import { MonthGrid } from "@/components/MonthGrid";
 import { ProjectFilter } from "@/components/ProjectFilter";
 import { EventSheet } from "@/components/EventSheet";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { prepareTelegramMiniApp } from "@/lib/telegram-mini-app";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -119,6 +120,8 @@ function EchoEvents() {
     queryKey: ["events-upcoming", today],
     queryFn: () => fetchUpcomingEvents(today, 20),
   });
+
+  useEffect(() => prepareTelegramMiniApp(), []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(term), 300);

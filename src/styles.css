@@ -149,11 +149,11 @@
 }
 
 @utility pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
 }
 
 @utility pt-safe {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), var(--tg-content-safe-area-inset-top, 0px));
 }
 
 @utility no-scrollbar {
