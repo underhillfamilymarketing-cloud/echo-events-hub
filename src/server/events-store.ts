@@ -417,7 +417,12 @@ export async function clearTelegramDraft(env: RuntimeEnv, chatId: number): Promi
 function asLegacyEvent(value: unknown): LegacyEvent | null {
   if (!isRecord(value) || typeof value["id"] !== "string") return null;
   try {
-    const input = parseEventInput(value);
+    const legacyTime = value["event_time"];
+    const normalizedTime =
+      typeof legacyTime === "string"
+        ? (legacyTime.match(/^\d{2}:\d{2}/)?.[0] ?? legacyTime)
+        : legacyTime;
+    const input = parseEventInput({ ...value, event_time: normalizedTime });
     return {
       id: value["id"],
       ...input,
